@@ -1,0 +1,17 @@
+Wave-I scope reset.
+
+The narrowed repo story is not the canonical foundation.
+
+Blue and Green are buckets.
+White and Mint are wallets.
+
+Buckets are percentage-based deployment and risk-reward classes.
+Wallets are capital containers.
+
+White is the fixed-cap reserve wallet.
+Mint is the wallet that collects dividends, drawdown captures, and drip flows for redeployment.
+
+Wave-I is live truth only.
+Wave-I must not render engine overlays, confidence outputs, regime outputs, or prediction surfaces.
+
+No further Block work should outrun this correction.
