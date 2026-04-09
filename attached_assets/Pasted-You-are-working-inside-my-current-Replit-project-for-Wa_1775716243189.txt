@@ -1,0 +1,117 @@
+You are working inside my current Replit project for Wave-I.
+
+Your job is to connect this Replit project to my existing GitHub repository:
+
+projectsfowler42-coder/wVRdr_Wave-I_Build
+
+and push the current Wave-I build into that GitHub repo in a way that preserves everything needed to recreate, optimize, and later push Wave-I back into Replit.
+
+Do not create a new repo.
+Do not create a different repo name.
+Use the attached existing GitHub repo:
+wVRdr_Wave-I_Build
+
+PRIMARY OBJECTIVE
+
+Take the current Replit Wave-I app state and turn the GitHub repo into the canonical Wave-I build repo.
+
+This must include:
+1. the current working app source
+2. all UI work already done for Wave-I
+3. all config and dependency files needed to run it
+4. all assets and static files needed to reproduce the current app
+5. a clear reconstruction guide
+6. a clear status of what is already built vs what still needs building
+
+NON-NEGOTIABLE REQUIREMENTS
+
+Make sure the GitHub repo contains everything needed to recreate Wave-I, including:
+
+- app source code
+- package manifest / dependency definitions
+- lockfiles if present
+- static assets
+- environment template if needed
+- README.md
+- WAVE_I_SCOPE.md
+- CURRENT_STATE.md
+- NEXT_STEPS.md
+
+If these docs do not exist yet, create them before pushing.
+
+DOCUMENT REQUIREMENTS
+
+README.md must include:
+- what Wave-I is
+- what this repo is for
+- how to run it
+- what the current app already does
+- what is not done yet
+- how this differs from old WaveRider
+
+WAVE_I_SCOPE.md must define:
+- Wave-I = Blue/Green only
+- truth-first operator surface
+- no old regime-heavy dashboard logic
+- War Room page
+- quote board
+- after-hours numbers
+- movement numbers
+- research links
+- deterministic calculators
+- future dividend / dip / DRiP / Mint / calendar features
+
+CURRENT_STATE.md must include:
+- what the current Replit app already contains
+- current pages/views
+- what data is real vs mocked
+- what bucket/instrument support exists now
+- whether portfolio persistence exists yet
+- whether dropdown bucket selectors exist yet
+- whether dividend calendar exists yet
+- whether dip-date / DRiP / Mint logic exists yet
+
+NEXT_STEPS.md must include:
+- exact next build priorities in order
+- full Blue and Green instrument universe support
+- current portfolio tracking
+- manual holding entry
+- entry date / entry price / shares / dividend collected / dip date / DRiP amount / expected income
+- dividend calendar
+- ex-date / pay-date truth
+- dip history
+- Mint bucket DRiP counter
+- eventual publish-ready path back into Replit
+
+GITHUB TASKS
+
+1. Inspect the current Replit project thoroughly first.
+2. Confirm whether GitHub is already linked.
+3. If not linked, link this Replit project to:
+   projectsfowler42-coder/wVRdr_Wave-I_Build
+4. Commit all required files into the repo.
+5. Push to the repo’s main branch unless that is unsafe, in which case create a clean branch and clearly report the branch name.
+6. Do not silently skip files.
+7. Do not stop at planning if pushing is possible.
+
+QUALITY BAR
+
+Do not give me vague success language.
+Give me file-specific proof.
+
+At the end, report:
+- whether the repo link succeeded
+- whether push succeeded
+- branch name
+- commit hash
+- every file added or changed
+- any blockers that prevented a clean push
+
+IMPORTANT
+
+This repo is supposed to become the canonical Wave-I build repo so we can optimize there and later push back into Replit.
+
+Do not redesign the app.
+Do not rebuild from scratch.
+Do not touch old WaveRider complexity unless needed to preserve current Wave-I work.
+Focus on preserving and exporting the current Wave-I shard cleanly and completely.
