@@ -4,6 +4,7 @@ import { fetchQuote, type Quote } from "@/lib/market";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { getBucketInstruments } from "@/lib/instruments";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
+import AuditPanels from "@/block2/ui/AuditPanels";
 import MarketTape from "@/components/MarketTape";
 import BucketQuoteBoard from "@/components/BucketQuoteBoard";
 import MovementStats from "@/components/MovementStats";
@@ -28,19 +29,19 @@ export default function WarRoom() {
   const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
 
-  const { data: blueQuote, isLoading: blueLoading, dataUpdatedAt: blueUpdated } = useQuery<Quote>({
+  const { data: blueQuote, dataUpdatedAt: blueUpdated } = useQuery<Quote>({
     queryKey: ["quote", "ARCC"],
     queryFn: () => fetchQuote("ARCC"),
-    refetchInterval: 90_000,
-    staleTime: 60_000,
+    refetchInterval: 90000,
+    staleTime: 60000,
     retry: 2,
   });
 
-  const { data: greenQuote, isLoading: greenLoading, dataUpdatedAt: greenUpdated } = useQuery<Quote>({
+  const { data: greenQuote, dataUpdatedAt: greenUpdated } = useQuery<Quote>({
     queryKey: ["quote", "AGNC"],
     queryFn: () => fetchQuote("AGNC"),
-    refetchInterval: 90_000,
-    staleTime: 60_000,
+    refetchInterval: 90000,
+    staleTime: 60000,
     retry: 2,
   });
 
@@ -53,7 +54,7 @@ export default function WarRoom() {
       minute: "2-digit",
       second: "2-digit",
     });
-    return `updated ${harvestReport.updated} · skipped ${harvestReport.skippedDuplicate} · failed ${harvestReport.failed} · ${ts}`;
+    return `updated ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed} | ${ts}`;
   }, [harvestReport]);
 
   async function handleHarvest() {
@@ -63,7 +64,7 @@ export default function WarRoom() {
     const sourceRows = [
       ...getBucketInstruments("BLUE").map((instrument) => `[B]::${instrument.ticker}`),
       ...getBucketInstruments("GREEN").map((instrument) => `[G]::${instrument.ticker}`),
-      ...holdings.map((holding) => `${holding.bucket}::${holding.wallet ?? "—"}::${holding.ticker}`),
+      ...holdings.map((holding) => `${holding.bucket}::${holding.wallet ?? "-"}::${holding.ticker}`),
     ];
 
     const unique = new Set(sourceRows);
@@ -112,10 +113,20 @@ export default function WarRoom() {
             <ResearchLinks />
           </section>
 
+          <section>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Truth / Audit</h2>
+            <AuditPanels
+              holdingsCount={holdings.length}
+              lastUpdated={lastUpdated}
+              harvestState={harvestState}
+              harvestSummary={harvestSummary}
+            />
+          </section>
+
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I · truth-first · [B] / [G] buckets · |W| / |M| wallets · frontend-only operator shell
+            Wave-I | truth-first | [B] / [G] buckets | |W| / |M| wallets | frontend-only operator shell
             <br />
-            <span className="opacity-60">[Harvest Data] runs locally and reports updated/skipped counts without backend services.</span>
+            <span className="opacity-60">[Harvest Data] runs locally and reports updated and skipped counts without backend services.</span>
           </footer>
         </main>
       )}
@@ -131,7 +142,7 @@ export default function WarRoom() {
           <PortfolioTable holdings={holdings} onHoldingsChange={setHoldings} />
 
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I · portfolio data stored locally · bucket/wallet semantics active
+            Wave-I | portfolio data stored locally | bucket and wallet semantics active
           </footer>
         </main>
       )}
