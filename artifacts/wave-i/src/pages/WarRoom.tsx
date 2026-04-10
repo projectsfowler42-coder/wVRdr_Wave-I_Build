@@ -29,20 +29,32 @@ export default function WarRoom() {
   const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
 
+  const blueTicker = useMemo(
+    () => holdings.find((holding) => holding.bucket === "BLUE")?.ticker ?? getBucketInstruments("BLUE")[0]?.ticker ?? "",
+    [holdings],
+  );
+
+  const greenTicker = useMemo(
+    () => holdings.find((holding) => holding.bucket === "GREEN")?.ticker ?? getBucketInstruments("GREEN")[0]?.ticker ?? "",
+    [holdings],
+  );
+
   const { data: blueQuote, dataUpdatedAt: blueUpdated } = useQuery<Quote>({
-    queryKey: ["quote", "ARCC"],
-    queryFn: () => fetchQuote("ARCC"),
+    queryKey: ["quote", blueTicker],
+    queryFn: () => fetchQuote(blueTicker),
     refetchInterval: 90000,
     staleTime: 60000,
     retry: 2,
+    enabled: Boolean(blueTicker),
   });
 
   const { data: greenQuote, dataUpdatedAt: greenUpdated } = useQuery<Quote>({
-    queryKey: ["quote", "AGNC"],
-    queryFn: () => fetchQuote("AGNC"),
+    queryKey: ["quote", greenTicker],
+    queryFn: () => fetchQuote(greenTicker),
     refetchInterval: 90000,
     staleTime: 60000,
     retry: 2,
+    enabled: Boolean(greenTicker),
   });
 
   const lastUpdated = Math.max(blueUpdated ?? 0, greenUpdated ?? 0) || null;
@@ -126,7 +138,7 @@ export default function WarRoom() {
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
             Wave-I | truth-first | [B] / [G] buckets | |W| / |M| wallets | frontend-only operator shell
             <br />
-            <span className="opacity-60">[Harvest Data] runs locally and reports updated and skipped counts without backend services.</span>
+            <span className="opacity-60">[Harvest Data] inventories tracked symbols locally and reports updated and skipped counts without backend services.</span>
           </footer>
         </main>
       )}
