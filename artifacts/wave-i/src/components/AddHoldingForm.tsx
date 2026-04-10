@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { BLUE_INSTRUMENTS, GREEN_INSTRUMENTS, getBucketInstruments } from "@/lib/instruments";
-import { addHolding, type Holding } from "@/lib/portfolio";
+import { BLUE_INSTRUMENTS, getBucketInstruments } from "@/lib/instruments";
+import { addHolding, type Holding, type BucketClass, type WalletClass } from "@/lib/portfolio";
 import { Plus, X } from "lucide-react";
 
 interface AddHoldingFormProps {
@@ -9,7 +9,8 @@ interface AddHoldingFormProps {
 }
 
 const EMPTY_FORM = {
-  bucket: "BLUE" as "BLUE" | "GREEN",
+  bucket: "BLUE" as BucketClass,
+  wallet: "" as "" | WalletClass,
   ticker: BLUE_INSTRUMENTS[0].ticker,
   shares: "",
   entryDate: "",
@@ -20,6 +21,14 @@ const EMPTY_FORM = {
   expectedIncome: "",
   notes: "",
 };
+
+function getWalletOptions(bucket: BucketClass): Array<{ value: "" | WalletClass; label: string }> {
+  return [
+    { value: "", label: "—" },
+    { value: "WHITE", label: "|W| WHITE" },
+    ...(bucket === "GREEN" ? [{ value: "MINT" as const, label: "|M| MINT" }] : []),
+  ];
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -45,8 +54,11 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
     setForm((f) => {
       const next = { ...f, [key]: value };
       if (key === "bucket") {
-        const instruments = getBucketInstruments(value as "BLUE" | "GREEN");
+        const instruments = getBucketInstruments(value as BucketClass);
         next.ticker = instruments[0].ticker;
+        if (value !== "GREEN" && next.wallet === "MINT") {
+          next.wallet = "";
+        }
       }
       return next;
     });
@@ -62,9 +74,11 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
     if (!form.ticker) { setError("Ticker is required."); return; }
     if (isNaN(shares) || shares <= 0) { setError("Shares must be a positive number."); return; }
     if (isNaN(entryPrice) || entryPrice <= 0) { setError("Entry price must be a positive number."); return; }
+    if (form.wallet === "MINT" && form.bucket !== "GREEN") { setError("|M| may only be assigned inside [G]."); return; }
 
     const holding: Omit<Holding, "id"> = {
       bucket: form.bucket,
+      wallet: form.wallet || undefined,
       ticker: form.ticker,
       shares,
       entryDate: form.entryDate,
@@ -82,6 +96,7 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
   }
 
   const bucketInstruments = getBucketInstruments(form.bucket);
+  const walletOptions = getWalletOptions(form.bucket);
 
   if (!open) {
     return (
@@ -115,8 +130,22 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
               onChange={(e) => set("bucket", e.target.value)}
               className={selectCls}
             >
-              <option value="BLUE">Blue (BDC)</option>
-              <option value="GREEN">Green (mREIT)</option>
+              <option value="BLUE">[B] BLUE</option>
+              <option value="GREEN">[G] GREEN</option>
+            </select>
+          </Field>
+
+          <Field label="Wallet">
+            <select
+              value={form.wallet}
+              onChange={(e) => set("wallet", e.target.value)}
+              className={selectCls}
+            >
+              {walletOptions.map((wallet) => (
+                <option key={wallet.value || "none"} value={wallet.value}>
+                  {wallet.label}
+                </option>
+              ))}
             </select>
           </Field>
 
@@ -135,112 +164,47 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
           </Field>
 
           <Field label="Shares">
-            <input
-              type="number"
-              value={form.shares}
-              onChange={(e) => set("shares", e.target.value)}
-              placeholder="e.g. 100"
-              step="any"
-              min="0"
-              className={inputCls}
-            />
+            <input type="number" value={form.shares} onChange={(e) => set("shares", e.target.value)} placeholder="e.g. 100" step="any" min="0" className={inputCls} />
           </Field>
 
           <Field label="Entry price $">
-            <input
-              type="number"
-              value={form.entryPrice}
-              onChange={(e) => set("entryPrice", e.target.value)}
-              placeholder="e.g. 18.50"
-              step="0.01"
-              min="0"
-              className={inputCls}
-            />
+            <input type="number" value={form.entryPrice} onChange={(e) => set("entryPrice", e.target.value)} placeholder="e.g. 18.50" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <Field label="Entry date">
-            <input
-              type="date"
-              value={form.entryDate}
-              onChange={(e) => set("entryDate", e.target.value)}
-              className={inputCls}
-            />
+            <input type="date" value={form.entryDate} onChange={(e) => set("entryDate", e.target.value)} className={inputCls} />
           </Field>
 
           <Field label="Dividend collected $">
-            <input
-              type="number"
-              value={form.dividendCollected}
-              onChange={(e) => set("dividendCollected", e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className={inputCls}
-            />
+            <input type="number" value={form.dividendCollected} onChange={(e) => set("dividendCollected", e.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <Field label="Latest dip date">
-            <input
-              type="date"
-              value={form.latestDipDate}
-              onChange={(e) => set("latestDipDate", e.target.value)}
-              className={inputCls}
-            />
+            <input type="date" value={form.latestDipDate} onChange={(e) => set("latestDipDate", e.target.value)} className={inputCls} />
           </Field>
 
           <Field label="DRiP amount $">
-            <input
-              type="number"
-              value={form.dripAmount}
-              onChange={(e) => set("dripAmount", e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className={inputCls}
-            />
+            <input type="number" value={form.dripAmount} onChange={(e) => set("dripAmount", e.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <Field label="Expected income/yr $">
-            <input
-              type="number"
-              value={form.expectedIncome}
-              onChange={(e) => set("expectedIncome", e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className={inputCls}
-            />
+            <input type="number" value={form.expectedIncome} onChange={(e) => set("expectedIncome", e.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <div className="col-span-2 md:col-span-3">
             <Field label="Notes">
-              <input
-                type="text"
-                value={form.notes}
-                onChange={(e) => set("notes", e.target.value)}
-                placeholder="Optional notes…"
-                className={inputCls}
-              />
+              <input type="text" value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Optional notes…" className={inputCls} />
             </Field>
           </div>
         </div>
 
-        {error && (
-          <div className="text-xs text-destructive mb-3">{error}</div>
-        )}
+        {error && <div className="text-xs text-destructive mb-3">{error}</div>}
 
         <div className="flex items-center gap-2">
-          <button
-            type="submit"
-            className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-          >
+          <button type="submit" className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
             Save holding
           </button>
-          <button
-            type="button"
-            onClick={() => { setOpen(false); setError(""); setForm(EMPTY_FORM); }}
-            className="px-4 py-1.5 rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button type="button" onClick={() => { setOpen(false); setError(""); setForm(EMPTY_FORM); }} className="px-4 py-1.5 rounded text-sm text-muted-foreground hover:text-foreground transition-colors">
             Cancel
           </button>
         </div>

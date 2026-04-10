@@ -3,6 +3,8 @@ import { useQueries } from "@tanstack/react-query";
 import { fetchQuote, type Quote } from "@/lib/market";
 import {
   type Holding,
+  type BucketClass,
+  type WalletClass,
   deleteHolding,
   updateHolding,
   calcCostBasis,
@@ -20,7 +22,7 @@ interface PortfolioTableProps {
 }
 
 type SortKey =
-  | "ticker" | "bucket" | "shares" | "entryPrice" | "entryDate"
+  | "ticker" | "bucket" | "wallet" | "shares" | "entryPrice" | "entryDate"
   | "currentPrice" | "currentValue" | "costBasis" | "gl"
   | "dividendCollected" | "latestDipDate" | "dripAmount" | "expectedIncome" | "notes";
 
@@ -30,6 +32,24 @@ const inputCls =
   "bg-muted border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full";
 const selectCls =
   "bg-muted border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+
+function getWalletOptions(bucket: BucketClass): Array<{ value: "" | WalletClass; label: string }> {
+  return [
+    { value: "", label: "—" },
+    { value: "WHITE", label: "|W| WHITE" },
+    ...(bucket === "GREEN" ? [{ value: "MINT" as const, label: "|M| MINT" }] : []),
+  ];
+}
+
+function walletLabel(wallet?: WalletClass): string {
+  if (wallet === "WHITE") return "|W| WHITE";
+  if (wallet === "MINT") return "|M| MINT";
+  return "—";
+}
+
+function bucketLabel(bucket: BucketClass): string {
+  return bucket === "BLUE" ? "[B] BLUE" : "[G] GREEN";
+}
 
 function SortHeader({
   label,
@@ -52,11 +72,7 @@ function SortHeader({
     >
       <span className="inline-flex items-center gap-0.5">
         {label}
-        {active ? (
-          dir === "asc" ? <ChevronUp size={10} /> : <ChevronDown size={10} />
-        ) : (
-          <ChevronDown size={10} className="opacity-20" />
-        )}
+        {active ? (dir === "asc" ? <ChevronUp size={10} /> : <ChevronDown size={10} />) : <ChevronDown size={10} className="opacity-20" />}
       </span>
     </th>
   );
@@ -71,6 +87,7 @@ interface EditRowProps {
 function EditRow({ holding, onSave, onCancel }: EditRowProps) {
   const [form, setForm] = useState({
     bucket: holding.bucket,
+    wallet: holding.wallet ?? "",
     ticker: holding.ticker,
     shares: String(holding.shares),
     entryDate: holding.entryDate,
@@ -86,7 +103,10 @@ function EditRow({ holding, onSave, onCancel }: EditRowProps) {
     setForm((f) => {
       const next = { ...f, [key]: value };
       if (key === "bucket") {
-        next.ticker = getBucketInstruments(value as "BLUE" | "GREEN")[0].ticker;
+        next.ticker = getBucketInstruments(value as BucketClass)[0].ticker;
+        if (value !== "GREEN" && next.wallet === "MINT") {
+          next.wallet = "";
+        }
       }
       return next;
     });
@@ -94,7 +114,8 @@ function EditRow({ holding, onSave, onCancel }: EditRowProps) {
 
   function handleSave() {
     onSave({
-      bucket: form.bucket as "BLUE" | "GREEN",
+      bucket: form.bucket as BucketClass,
+      wallet: form.wallet ? (form.wallet as WalletClass) : undefined,
       ticker: form.ticker,
       shares: parseFloat(form.shares) || 0,
       entryDate: form.entryDate,
@@ -107,14 +128,22 @@ function EditRow({ holding, onSave, onCancel }: EditRowProps) {
     });
   }
 
-  const bucketInstruments = getBucketInstruments(form.bucket as "BLUE" | "GREEN");
+  const bucketInstruments = getBucketInstruments(form.bucket as BucketClass);
+  const walletOptions = getWalletOptions(form.bucket as BucketClass);
 
   return (
     <tr className="border-b border-border/30 bg-accent/20">
       <td className="px-2 py-2">
         <select value={form.bucket} onChange={(e) => set("bucket", e.target.value)} className={selectCls}>
-          <option value="BLUE">BLUE</option>
-          <option value="GREEN">GREEN</option>
+          <option value="BLUE">[B] BLUE</option>
+          <option value="GREEN">[G] GREEN</option>
+        </select>
+      </td>
+      <td className="px-2 py-2">
+        <select value={form.wallet} onChange={(e) => set("wallet", e.target.value)} className={selectCls}>
+          {walletOptions.map((wallet) => (
+            <option key={wallet.value || "none"} value={wallet.value}>{wallet.label}</option>
+          ))}
         </select>
       </td>
       <td className="px-2 py-2">
@@ -167,9 +196,10 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
       <td className="px-2 py-2.5">
         <div className="flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isBlue ? "bg-blue-signal" : "bg-green-signal"}`} />
-          <span className={`font-semibold text-[10px] uppercase ${isBlue ? "text-blue" : "text-green"}`}>{holding.bucket}</span>
+          <span className={`font-semibold text-[10px] uppercase ${isBlue ? "text-blue" : "text-green"}`}>{bucketLabel(holding.bucket)}</span>
         </div>
       </td>
+      <td className="px-2 py-2.5 text-[10px] font-semibold text-muted-foreground">{walletLabel(holding.wallet)}</td>
       <td className="px-2 py-2.5">
         <div className="font-bold text-foreground">{holding.ticker}</div>
         {instr && <div className="text-[10px] text-muted-foreground truncate max-w-[100px]">{instr.name}</div>}
@@ -178,13 +208,7 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
       <td className="px-2 py-2.5 num text-muted-foreground whitespace-nowrap">{holding.entryDate || "—"}</td>
       <td className="px-2 py-2.5 num text-foreground">{fmtDollar(holding.entryPrice)}</td>
       <td className="px-2 py-2.5 num">
-        {quoteLoading ? (
-          <span className="text-muted-foreground animate-pulse text-[10px]">loading</span>
-        ) : quote?.price == null ? (
-          <span className="text-muted-foreground">—</span>
-        ) : (
-          <span className="text-foreground">{fmtDollar(quote.price)}</span>
-        )}
+        {quoteLoading ? <span className="text-muted-foreground animate-pulse text-[10px]">loading</span> : quote?.price == null ? <span className="text-muted-foreground">—</span> : <span className="text-foreground">{fmtDollar(quote.price)}</span>}
       </td>
       <td className="px-2 py-2.5 num text-foreground">{cv != null ? fmtDollar(cv) : "—"}</td>
       <td className="px-2 py-2.5 num text-muted-foreground">{fmtDollar(cb)}</td>
@@ -194,9 +218,7 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
             <div className={`font-semibold ${signClass(gl)}`}>{fmtDollar(gl)}</div>
             <div className={`text-[10px] ${signClass(glPct)}`}>{fmtPct(glPct)}</div>
           </div>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+        ) : <span className="text-muted-foreground">—</span>}
       </td>
       <td className="px-2 py-2.5 num text-foreground">{fmtDollar(holding.dividendCollected)}</td>
       <td className="px-2 py-2.5 num text-muted-foreground whitespace-nowrap">{holding.latestDipDate || "—"}</td>
@@ -207,20 +229,8 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
       </td>
       <td className="px-2 py-2.5">
         <div className="flex gap-1">
-          <button
-            onClick={onEdit}
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Edit"
-          >
-            <Pencil size={12} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={12} />
-          </button>
+          <button onClick={onEdit} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Edit"><Pencil size={12} /></button>
+          <button onClick={onDelete} className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Delete"><Trash2 size={12} /></button>
         </div>
       </td>
     </tr>
@@ -233,10 +243,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const allTickers = useMemo(
-    () => [...new Set(holdings.map((h) => h.ticker))],
-    [holdings]
-  );
+  const allTickers = useMemo(() => [...new Set(holdings.map((h) => h.ticker))], [holdings]);
 
   const quoteResults = useQueries({
     queries: allTickers.map((ticker) => ({
@@ -279,10 +286,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
     setEditingId(null);
   }
 
-  const filtered = useMemo(
-    () => holdings.filter((h) => bucketFilter === "ALL" || h.bucket === bucketFilter),
-    [holdings, bucketFilter]
-  );
+  const filtered = useMemo(() => holdings.filter((h) => bucketFilter === "ALL" || h.bucket === bucketFilter), [holdings, bucketFilter]);
 
   const sorted = useMemo(() => {
     const NULL_SENTINEL_ASC = Number.MAX_VALUE;
@@ -298,6 +302,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
       switch (sortKey) {
         case "ticker": vA = a.ticker; vB = b.ticker; break;
         case "bucket": vA = a.bucket; vB = b.bucket; break;
+        case "wallet": vA = a.wallet ?? ""; vB = b.wallet ?? ""; break;
         case "shares": vA = a.shares; vB = b.shares; break;
         case "entryDate": vA = a.entryDate || ""; vB = b.entryDate || ""; break;
         case "entryPrice": vA = a.entryPrice; vB = b.entryPrice; break;
@@ -364,7 +369,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
-            {b}
+            {b === "ALL" ? "ALL" : bucketLabel(b as BucketClass)}
           </button>
         ))}
 
@@ -377,10 +382,11 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-xs min-w-[1100px]">
+        <table className="w-full text-xs min-w-[1180px]">
           <thead>
             <tr className="border-b border-border/60 bg-muted/20">
               <SortHeader label="Bucket" sortKey="bucket" current={sortKey} dir={sortDir} onSort={handleSort} />
+              <SortHeader label="Wallet" sortKey="wallet" current={sortKey} dir={sortDir} onSort={handleSort} />
               <SortHeader label="Ticker" sortKey="ticker" current={sortKey} dir={sortDir} onSort={handleSort} />
               <SortHeader label="Shares" sortKey="shares" current={sortKey} dir={sortDir} onSort={handleSort} />
               <SortHeader label="Entry Date" sortKey="entryDate" current={sortKey} dir={sortDir} onSort={handleSort} />
@@ -401,21 +407,9 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
             {sorted.map((h) => {
               const qEntry = quotesMap.get(h.ticker);
               return editingId === h.id ? (
-                <EditRow
-                  key={h.id}
-                  holding={h}
-                  onSave={(patch) => handleSaveEdit(h.id, patch)}
-                  onCancel={() => setEditingId(null)}
-                />
+                <EditRow key={h.id} holding={h} onSave={(patch) => handleSaveEdit(h.id, patch)} onCancel={() => setEditingId(null)} />
               ) : (
-                <HoldingRow
-                  key={h.id}
-                  holding={h}
-                  quote={qEntry?.quote}
-                  quoteLoading={qEntry?.loading ?? false}
-                  onEdit={() => setEditingId(h.id)}
-                  onDelete={() => handleDelete(h.id)}
-                />
+                <HoldingRow key={h.id} holding={h} quote={qEntry?.quote} quoteLoading={qEntry?.loading ?? false} onEdit={() => setEditingId(h.id)} onDelete={() => handleDelete(h.id)} />
               );
             })}
           </tbody>
