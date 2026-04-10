@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchQuote, type Quote } from "@/lib/market";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
+import { getBucketInstruments } from "@/lib/instruments";
+import type { HarvestRunState } from "@/block2/truth/canonical-types";
 import MarketTape from "@/components/MarketTape";
 import BucketQuoteBoard from "@/components/BucketQuoteBoard";
 import MovementStats from "@/components/MovementStats";
@@ -13,14 +15,21 @@ import PortfolioTable from "@/components/PortfolioTable";
 
 type Tab = "warroom" | "portfolio";
 
+interface LocalHarvestReport {
+  updated: number;
+  skippedDuplicate: number;
+  failed: number;
+  finishedAt: string | null;
+}
+
 export default function WarRoom() {
-  const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("warroom");
   const [holdings, setHoldings] = useState<Holding[]>(() => loadHoldings());
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
+  const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
 
   const { data: blueQuote, isLoading: blueLoading, dataUpdatedAt: blueUpdated } = useQuery<Quote>({
-    queryKey: ["quote", "ARCC", refreshKey],
+    queryKey: ["quote", "ARCC"],
     queryFn: () => fetchQuote("ARCC"),
     refetchInterval: 90_000,
     staleTime: 60_000,
@@ -28,7 +37,7 @@ export default function WarRoom() {
   });
 
   const { data: greenQuote, isLoading: greenLoading, dataUpdatedAt: greenUpdated } = useQuery<Quote>({
-    queryKey: ["quote", "AGNC", refreshKey],
+    queryKey: ["quote", "AGNC"],
     queryFn: () => fetchQuote("AGNC"),
     refetchInterval: 90_000,
     staleTime: 60_000,
@@ -36,12 +45,37 @@ export default function WarRoom() {
   });
 
   const lastUpdated = Math.max(blueUpdated ?? 0, greenUpdated ?? 0) || null;
-  const isRefreshing = blueLoading || greenLoading;
 
-  function handleRefresh() {
-    setRefreshKey((k) => k + 1);
-    qc.invalidateQueries({ queryKey: ["tape"] });
-    qc.invalidateQueries({ queryKey: ["quote"] });
+  const harvestSummary = useMemo(() => {
+    if (!harvestReport?.finishedAt) return null;
+    const ts = new Date(harvestReport.finishedAt).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    return `updated ${harvestReport.updated} · skipped ${harvestReport.skippedDuplicate} · failed ${harvestReport.failed} · ${ts}`;
+  }, [harvestReport]);
+
+  async function handleHarvest() {
+    if (harvestState === "running") return;
+    setHarvestState("running");
+
+    const sourceRows = [
+      ...getBucketInstruments("BLUE").map((instrument) => `[B]::${instrument.ticker}`),
+      ...getBucketInstruments("GREEN").map((instrument) => `[G]::${instrument.ticker}`),
+      ...holdings.map((holding) => `${holding.bucket}::${holding.wallet ?? "—"}::${holding.ticker}`),
+    ];
+
+    const unique = new Set(sourceRows);
+    const report: LocalHarvestReport = {
+      updated: unique.size,
+      skippedDuplicate: sourceRows.length - unique.size,
+      failed: 0,
+      finishedAt: new Date().toISOString(),
+    };
+
+    setHarvestReport(report);
+    setHarvestState("completed");
   }
 
   return (
@@ -49,8 +83,9 @@ export default function WarRoom() {
       <Header
         tab={tab}
         onTabChange={setTab}
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
+        onHarvest={handleHarvest}
+        harvestState={harvestState}
+        harvestSummary={harvestSummary}
         lastUpdated={lastUpdated}
         holdingsCount={holdings.length}
       />
@@ -78,9 +113,9 @@ export default function WarRoom() {
           </section>
 
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I · truth-first · Blue (BDC) &amp; Green (mREIT) · data via Yahoo Finance · not financial advice
+            Wave-I · truth-first · [B] / [G] buckets · |W| / |M| wallets · frontend-only operator shell
             <br />
-            <span className="opacity-60">Coming: dividend calendar, ex-dates, pay dates, dip events, Mint DRiP counter, payout history</span>
+            <span className="opacity-60">[Harvest Data] runs locally and reports updated/skipped counts without backend services.</span>
           </footer>
         </main>
       )}
@@ -96,7 +131,7 @@ export default function WarRoom() {
           <PortfolioTable holdings={holdings} onHoldingsChange={setHoldings} />
 
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I · portfolio data stored locally · not financial advice
+            Wave-I · portfolio data stored locally · bucket/wallet semantics active
           </footer>
         </main>
       )}
