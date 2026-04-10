@@ -1,17 +1,20 @@
-import { RefreshCw, Briefcase, RadioTower } from "lucide-react";
+import { Briefcase, RadioTower } from "lucide-react";
+import { HarvestButton } from "@/block2/ui/HarvestButton";
+import type { HarvestRunState } from "@/block2/truth/canonical-types";
 
 type Tab = "warroom" | "portfolio";
 
 interface HeaderProps {
   tab: Tab;
   onTabChange: (t: Tab) => void;
-  onRefresh: () => void;
-  isRefreshing: boolean;
+  onHarvest: () => void;
+  harvestState: HarvestRunState;
+  harvestSummary?: string | null;
   lastUpdated: number | null;
   holdingsCount: number;
 }
 
-export default function Header({ tab, onTabChange, onRefresh, isRefreshing, lastUpdated, holdingsCount }: HeaderProps) {
+export default function Header({ tab, onTabChange, onHarvest, harvestState, harvestSummary, lastUpdated, holdingsCount }: HeaderProps) {
   const ts = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
     : null;
@@ -23,11 +26,11 @@ export default function Header({ tab, onTabChange, onRefresh, isRefreshing, last
           <span className="text-sm font-bold tracking-tight text-foreground">Wave-I</span>
           <span className="ml-2 text-xs text-muted-foreground">War Room</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-blue-signal inline-block" />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Blue</span>
-          <span className="w-2 h-2 rounded-full bg-green-signal inline-block ml-1" />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Green</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[B] Blue</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[G] Green</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|W| White</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|M| Mint</span>
         </div>
       </div>
 
@@ -63,18 +66,10 @@ export default function Header({ tab, onTabChange, onRefresh, isRefreshing, last
         </button>
       </nav>
 
-      <div className="flex items-center gap-3">
-        {ts && (
-          <span className="text-[10px] text-muted-foreground num">Updated {ts}</span>
-        )}
-        <button
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent border border-border/60 transition-colors disabled:opacity-40"
-        >
-          <RefreshCw size={11} className={isRefreshing ? "animate-spin" : ""} />
-          Refresh
-        </button>
+      <div className="flex items-center gap-3 flex-wrap justify-end">
+        {ts && <span className="text-[10px] text-muted-foreground num">Updated {ts}</span>}
+        {harvestSummary && <span className="text-[10px] text-muted-foreground num">{harvestSummary}</span>}
+        <HarvestButton state={harvestState} onClick={onHarvest} />
       </div>
     </header>
   );

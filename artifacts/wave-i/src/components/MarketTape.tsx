@@ -18,8 +18,8 @@ export default function MarketTape() {
   const { data: items = [], isLoading } = useQuery<TapeItem[]>({
     queryKey: ["tape"],
     queryFn: fetchTape,
-    refetchInterval: 90_000,
-    staleTime: 60_000,
+    refetchInterval: 90000,
+    staleTime: 60000,
   });
 
   const doubled = [...items, ...items];
@@ -30,9 +30,9 @@ export default function MarketTape() {
       <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-card/80 to-transparent pointer-events-none" />
 
       {isLoading ? (
-        <div className="px-4 text-xs text-muted-foreground">Loading market data…</div>
+        <div className="px-4 text-xs text-muted-foreground">Loading local snapshots…</div>
       ) : items.length === 0 ? (
-        <div className="px-4 text-xs text-muted-foreground">Market data unavailable</div>
+        <div className="px-4 text-xs text-muted-foreground">No local market snapshots</div>
       ) : (
         <div className="flex tape-track">
           {doubled.map((item, i) => (
@@ -43,7 +43,7 @@ export default function MarketTape() {
 
       <div className="absolute right-3 flex items-center gap-1.5 z-20 bg-card/80 pl-2">
         <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-up" />
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Live</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Local</span>
       </div>
     </div>
   );
