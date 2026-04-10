@@ -1,5 +1,5 @@
 import { type Quote } from "@/lib/market";
-import { fmt, fmtDollar, fmtMillions, fmtPct, signClass } from "@/lib/utils";
+import { fmtDollar, fmtMillions, fmtPct, signClass } from "@/lib/utils";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 
 interface QuoteCardProps {
@@ -39,15 +39,14 @@ export default function QuoteCard({ label, ticker, quote, loading, error }: Quot
     return (
       <div className={`rounded-lg border ${borderClass} ${dimClass} p-4`}>
         <div className={`text-xs font-bold tracking-widest uppercase mb-2 ${accentClass}`}>{label} · {ticker}</div>
-        <div className="text-muted-foreground text-sm">Unable to fetch quote. <a href={`https://finance.yahoo.com/quote/${ticker}`} target="_blank" rel="noopener noreferrer" className="underline">Open Yahoo Finance</a></div>
+        <div className="text-muted-foreground text-sm">No local quote snapshot available.</div>
       </div>
     );
   }
 
   const chgClass = signClass(quote.changePct);
   const Arrow = quote.changePct == null ? Minus : quote.changePct > 0 ? ArrowUpRight : quote.changePct < 0 ? ArrowDownRight : Minus;
-
-  const ts = quote.timestamp ? new Date(quote.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  const ts = quote.timestamp ? new Date(quote.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 
   return (
     <div className={`rounded-lg border ${borderClass} ${dimClass} p-4`}>
@@ -57,15 +56,8 @@ export default function QuoteCard({ label, ticker, quote, loading, error }: Quot
           <div className="text-xs text-muted-foreground">{ticker}</div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] text-muted-foreground">{ts}</div>
-          <a
-            href={`https://finance.yahoo.com/quote/${ticker}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] text-muted-foreground hover:text-primary underline"
-          >
-            Yahoo ↗
-          </a>
+          <div className="text-[10px] text-muted-foreground">Snapshot {ts}</div>
+          <div className="text-[10px] text-muted-foreground">Local</div>
         </div>
       </div>
 
