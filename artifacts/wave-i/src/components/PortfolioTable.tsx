@@ -3,16 +3,17 @@ import { useQueries } from "@tanstack/react-query";
 import { fetchQuote, type Quote } from "@/lib/market";
 import {
   type Holding,
-  type BucketClass,
-  type WalletClass,
+  type ActiveContainerClass,
   deleteHolding,
   updateHolding,
   calcCostBasis,
   calcCurrentValue,
   calcUnrealizedGL,
   calcUnrealizedGLPct,
+  placementFromContainer,
 } from "@/lib/portfolio";
-import { getInstrument, getBucketInstruments } from "@/lib/instruments";
+import { getInstrumentRecord, getBucketScopedInstruments } from "@/lib/loadInstruments";
+import { ACTIVE_CONTAINERS, containerLabel, containerParentLabel, containerAccent } from "@/lib/containerModel";
 import { fmtDollar, fmtPct, fmt, signClass } from "@/lib/utils";
 import { Pencil, Trash2, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 
@@ -22,34 +23,16 @@ interface PortfolioTableProps {
 }
 
 type SortKey =
-  | "ticker" | "bucket" | "wallet" | "shares" | "entryPrice" | "entryDate"
+  | "ticker" | "container" | "shares" | "entryPrice" | "entryDate"
   | "currentPrice" | "currentValue" | "costBasis" | "gl"
   | "dividendCollected" | "latestDipDate" | "dripAmount" | "expectedIncome" | "notes";
 
-type BucketFilter = "ALL" | "BLUE" | "GREEN";
+type ContainerFilter = "ALL" | ActiveContainerClass;
 
 const inputCls =
   "bg-muted border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full";
 const selectCls =
   "bg-muted border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
-
-function getWalletOptions(bucket: BucketClass): Array<{ value: "" | WalletClass; label: string }> {
-  return [
-    { value: "", label: "—" },
-    { value: "WHITE", label: "|W| WHITE" },
-    ...(bucket === "GREEN" ? [{ value: "MINT" as const, label: "|M| MINT" }] : []),
-  ];
-}
-
-function walletLabel(wallet?: WalletClass): string {
-  if (wallet === "WHITE") return "|W| WHITE";
-  if (wallet === "MINT") return "|M| MINT";
-  return "—";
-}
-
-function bucketLabel(bucket: BucketClass): string {
-  return bucket === "BLUE" ? "[B] BLUE" : "[G] GREEN";
-}
 
 function SortHeader({
   label,
@@ -86,8 +69,7 @@ interface EditRowProps {
 
 function EditRow({ holding, onSave, onCancel }: EditRowProps) {
   const [form, setForm] = useState({
-    bucket: holding.bucket,
-    wallet: holding.wallet ?? "",
+    container: holding.container,
     ticker: holding.ticker,
     shares: String(holding.shares),
     entryDate: holding.entryDate,
@@ -100,22 +82,21 @@ function EditRow({ holding, onSave, onCancel }: EditRowProps) {
   });
 
   function set(key: keyof typeof form, value: string) {
-    setForm((f) => {
-      const next = { ...f, [key]: value };
-      if (key === "bucket") {
-        next.ticker = getBucketInstruments(value as BucketClass)[0].ticker;
-        if (value !== "GREEN" && next.wallet === "MINT") {
-          next.wallet = "";
-        }
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "container") {
+        next.ticker = getBucketScopedInstruments(value as ActiveContainerClass)[0]?.ticker ?? "";
       }
       return next;
     });
   }
 
   function handleSave() {
+    const placement = placementFromContainer(form.container as ActiveContainerClass);
     onSave({
-      bucket: form.bucket as BucketClass,
-      wallet: form.wallet ? (form.wallet as WalletClass) : undefined,
+      container: form.container as ActiveContainerClass,
+      bucket: placement.bucket,
+      wallet: placement.wallet,
       ticker: form.ticker,
       shares: parseFloat(form.shares) || 0,
       entryDate: form.entryDate,
@@ -128,43 +109,37 @@ function EditRow({ holding, onSave, onCancel }: EditRowProps) {
     });
   }
 
-  const bucketInstruments = getBucketInstruments(form.bucket as BucketClass);
-  const walletOptions = getWalletOptions(form.bucket as BucketClass);
+  const scopedInstruments = getBucketScopedInstruments(form.container as ActiveContainerClass);
 
   return (
     <tr className="border-b border-border/30 bg-accent/20">
       <td className="px-2 py-2">
-        <select value={form.bucket} onChange={(e) => set("bucket", e.target.value)} className={selectCls}>
-          <option value="BLUE">[B] BLUE</option>
-          <option value="GREEN">[G] GREEN</option>
-        </select>
-      </td>
-      <td className="px-2 py-2">
-        <select value={form.wallet} onChange={(e) => set("wallet", e.target.value)} className={selectCls}>
-          {walletOptions.map((wallet) => (
-            <option key={wallet.value || "none"} value={wallet.value}>{wallet.label}</option>
+        <select value={form.container} onChange={(event) => set("container", event.target.value)} className={selectCls}>
+          {ACTIVE_CONTAINERS.map((container) => (
+            <option key={container} value={container}>{containerLabel(container)}</option>
           ))}
         </select>
       </td>
+      <td className="px-2 py-2 text-muted-foreground text-xs">{containerParentLabel(form.container as ActiveContainerClass)}</td>
       <td className="px-2 py-2">
-        <select value={form.ticker} onChange={(e) => set("ticker", e.target.value)} className={selectCls}>
-          {bucketInstruments.map((i) => (
-            <option key={i.ticker} value={i.ticker}>{i.ticker}</option>
+        <select value={form.ticker} onChange={(event) => set("ticker", event.target.value)} className={selectCls}>
+          {scopedInstruments.map((instrument) => (
+            <option key={instrument.ticker} value={instrument.ticker}>{instrument.ticker}</option>
           ))}
         </select>
       </td>
-      <td className="px-2 py-2"><input type="number" value={form.shares} onChange={(e) => set("shares", e.target.value)} className={inputCls} /></td>
-      <td className="px-2 py-2"><input type="date" value={form.entryDate} onChange={(e) => set("entryDate", e.target.value)} className={inputCls} /></td>
-      <td className="px-2 py-2"><input type="number" value={form.entryPrice} onChange={(e) => set("entryPrice", e.target.value)} step="0.01" className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="number" value={form.shares} onChange={(event) => set("shares", event.target.value)} className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="date" value={form.entryDate} onChange={(event) => set("entryDate", event.target.value)} className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="number" value={form.entryPrice} onChange={(event) => set("entryPrice", event.target.value)} step="0.01" className={inputCls} /></td>
       <td className="px-2 py-2 text-muted-foreground text-xs italic">live</td>
       <td className="px-2 py-2 text-muted-foreground text-xs italic">auto</td>
       <td className="px-2 py-2 text-muted-foreground text-xs italic">auto</td>
       <td className="px-2 py-2 text-muted-foreground text-xs italic">auto</td>
-      <td className="px-2 py-2"><input type="number" value={form.dividendCollected} onChange={(e) => set("dividendCollected", e.target.value)} step="0.01" className={inputCls} /></td>
-      <td className="px-2 py-2"><input type="date" value={form.latestDipDate} onChange={(e) => set("latestDipDate", e.target.value)} className={inputCls} /></td>
-      <td className="px-2 py-2"><input type="number" value={form.dripAmount} onChange={(e) => set("dripAmount", e.target.value)} step="0.01" className={inputCls} /></td>
-      <td className="px-2 py-2"><input type="number" value={form.expectedIncome} onChange={(e) => set("expectedIncome", e.target.value)} step="0.01" className={inputCls} /></td>
-      <td className="px-2 py-2"><input type="text" value={form.notes} onChange={(e) => set("notes", e.target.value)} className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="number" value={form.dividendCollected} onChange={(event) => set("dividendCollected", event.target.value)} step="0.01" className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="date" value={form.latestDipDate} onChange={(event) => set("latestDipDate", event.target.value)} className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="number" value={form.dripAmount} onChange={(event) => set("dripAmount", event.target.value)} step="0.01" className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="number" value={form.expectedIncome} onChange={(event) => set("expectedIncome", event.target.value)} step="0.01" className={inputCls} /></td>
+      <td className="px-2 py-2"><input type="text" value={form.notes} onChange={(event) => set("notes", event.target.value)} className={inputCls} /></td>
       <td className="px-2 py-2">
         <div className="flex gap-1">
           <button onClick={handleSave} className="p-1 rounded text-up hover:bg-up/10 transition-colors" title="Save"><Check size={13} /></button>
@@ -184,10 +159,10 @@ interface HoldingRowProps {
 }
 
 function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingRowProps) {
-  const instr = getInstrument(holding.ticker);
-  const isBlue = holding.bucket === "BLUE";
-  const cb = calcCostBasis(holding);
-  const cv = calcCurrentValue(holding, quote?.price);
+  const instrument = getInstrumentRecord(holding.ticker);
+  const accent = containerAccent(holding.container);
+  const costBasis = calcCostBasis(holding);
+  const currentValue = calcCurrentValue(holding, quote?.price);
   const gl = calcUnrealizedGL(holding, quote?.price);
   const glPct = calcUnrealizedGLPct(holding, quote?.price);
 
@@ -195,14 +170,14 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
     <tr className="border-b border-border/20 hover:bg-muted/10 transition-colors">
       <td className="px-2 py-2.5">
         <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isBlue ? "bg-blue-signal" : "bg-green-signal"}`} />
-          <span className={`font-semibold text-[10px] uppercase ${isBlue ? "text-blue" : "text-green"}`}>{bucketLabel(holding.bucket)}</span>
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${accent.dim}`} />
+          <span className={`font-semibold text-[10px] uppercase ${accent.text}`}>{containerLabel(holding.container)}</span>
         </div>
       </td>
-      <td className="px-2 py-2.5 text-[10px] font-semibold text-muted-foreground">{walletLabel(holding.wallet)}</td>
+      <td className="px-2 py-2.5 text-[10px] font-semibold text-muted-foreground">{containerParentLabel(holding.container)}</td>
       <td className="px-2 py-2.5">
         <div className="font-bold text-foreground">{holding.ticker}</div>
-        {instr && <div className="text-[10px] text-muted-foreground truncate max-w-[100px]">{instr.name}</div>}
+        {instrument && <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">{instrument.name}</div>}
       </td>
       <td className="px-2 py-2.5 num text-foreground">{fmt(holding.shares, 4)}</td>
       <td className="px-2 py-2.5 num text-muted-foreground whitespace-nowrap">{holding.entryDate || "—"}</td>
@@ -210,8 +185,8 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
       <td className="px-2 py-2.5 num">
         {quoteLoading ? <span className="text-muted-foreground animate-pulse text-[10px]">loading</span> : quote?.price == null ? <span className="text-muted-foreground">—</span> : <span className="text-foreground">{fmtDollar(quote.price)}</span>}
       </td>
-      <td className="px-2 py-2.5 num text-foreground">{cv != null ? fmtDollar(cv) : "—"}</td>
-      <td className="px-2 py-2.5 num text-muted-foreground">{fmtDollar(cb)}</td>
+      <td className="px-2 py-2.5 num text-foreground">{currentValue != null ? fmtDollar(currentValue) : "—"}</td>
+      <td className="px-2 py-2.5 num text-muted-foreground">{fmtDollar(costBasis)}</td>
       <td className="px-2 py-2.5 num">
         {gl != null ? (
           <div>
@@ -238,12 +213,12 @@ function HoldingRow({ holding, quote, quoteLoading, onEdit, onDelete }: HoldingR
 }
 
 export default function PortfolioTable({ holdings, onHoldingsChange }: PortfolioTableProps) {
-  const [bucketFilter, setBucketFilter] = useState<BucketFilter>("ALL");
+  const [containerFilter, setContainerFilter] = useState<ContainerFilter>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("entryDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const allTickers = useMemo(() => [...new Set(holdings.map((h) => h.ticker))], [holdings]);
+  const allTickers = useMemo(() => [...new Set(holdings.map((holding) => holding.ticker))], [holdings]);
 
   const quoteResults = useQueries({
     queries: allTickers.map((ticker) => ({
@@ -257,10 +232,10 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
 
   const quotesMap = useMemo(() => {
     const map = new Map<string, { quote: Quote | undefined; loading: boolean }>();
-    allTickers.forEach((ticker, i) => {
+    allTickers.forEach((ticker, index) => {
       map.set(ticker, {
-        quote: quoteResults[i]?.data as Quote | undefined,
-        loading: quoteResults[i]?.isLoading ?? false,
+        quote: quoteResults[index]?.data as Quote | undefined,
+        loading: quoteResults[index]?.isLoading ?? false,
       });
     });
     return map;
@@ -268,7 +243,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
       setSortDir("asc");
@@ -286,62 +261,102 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
     setEditingId(null);
   }
 
-  const filtered = useMemo(() => holdings.filter((h) => bucketFilter === "ALL" || h.bucket === bucketFilter), [holdings, bucketFilter]);
+  const filtered = useMemo(
+    () => holdings.filter((holding) => containerFilter === "ALL" || holding.container === containerFilter),
+    [holdings, containerFilter],
+  );
 
   const sorted = useMemo(() => {
-    const NULL_SENTINEL_ASC = Number.MAX_VALUE;
-    const NULL_SENTINEL_DESC = -Number.MAX_VALUE;
+    const nullAsc = Number.MAX_VALUE;
+    const nullDesc = -Number.MAX_VALUE;
 
-    return [...filtered].sort((a, b) => {
-      const qa = quotesMap.get(a.ticker)?.quote;
-      const qb = quotesMap.get(b.ticker)?.quote;
+    return [...filtered].sort((left, right) => {
+      const leftQuote = quotesMap.get(left.ticker)?.quote;
+      const rightQuote = quotesMap.get(right.ticker)?.quote;
 
-      let vA: number | string = 0;
-      let vB: number | string = 0;
+      let leftValue: number | string = 0;
+      let rightValue: number | string = 0;
 
       switch (sortKey) {
-        case "ticker": vA = a.ticker; vB = b.ticker; break;
-        case "bucket": vA = a.bucket; vB = b.bucket; break;
-        case "wallet": vA = a.wallet ?? ""; vB = b.wallet ?? ""; break;
-        case "shares": vA = a.shares; vB = b.shares; break;
-        case "entryDate": vA = a.entryDate || ""; vB = b.entryDate || ""; break;
-        case "entryPrice": vA = a.entryPrice; vB = b.entryPrice; break;
-        case "costBasis": vA = calcCostBasis(a); vB = calcCostBasis(b); break;
-        case "dividendCollected": vA = a.dividendCollected; vB = b.dividendCollected; break;
-        case "latestDipDate": vA = a.latestDipDate || ""; vB = b.latestDipDate || ""; break;
-        case "dripAmount": vA = a.dripAmount; vB = b.dripAmount; break;
-        case "expectedIncome": vA = a.expectedIncome; vB = b.expectedIncome; break;
-        case "notes": vA = a.notes || ""; vB = b.notes || ""; break;
+        case "ticker":
+          leftValue = left.ticker;
+          rightValue = right.ticker;
+          break;
+        case "container":
+          leftValue = left.container;
+          rightValue = right.container;
+          break;
+        case "shares":
+          leftValue = left.shares;
+          rightValue = right.shares;
+          break;
+        case "entryDate":
+          leftValue = left.entryDate || "";
+          rightValue = right.entryDate || "";
+          break;
+        case "entryPrice":
+          leftValue = left.entryPrice;
+          rightValue = right.entryPrice;
+          break;
+        case "costBasis":
+          leftValue = calcCostBasis(left);
+          rightValue = calcCostBasis(right);
+          break;
+        case "dividendCollected":
+          leftValue = left.dividendCollected;
+          rightValue = right.dividendCollected;
+          break;
+        case "latestDipDate":
+          leftValue = left.latestDipDate || "";
+          rightValue = right.latestDipDate || "";
+          break;
+        case "dripAmount":
+          leftValue = left.dripAmount;
+          rightValue = right.dripAmount;
+          break;
+        case "expectedIncome":
+          leftValue = left.expectedIncome;
+          rightValue = right.expectedIncome;
+          break;
+        case "notes":
+          leftValue = left.notes || "";
+          rightValue = right.notes || "";
+          break;
         case "currentPrice": {
-          const sentinel = sortDir === "asc" ? NULL_SENTINEL_ASC : NULL_SENTINEL_DESC;
-          vA = qa?.price ?? sentinel;
-          vB = qb?.price ?? sentinel;
+          const sentinel = sortDir === "asc" ? nullAsc : nullDesc;
+          leftValue = leftQuote?.price ?? sentinel;
+          rightValue = rightQuote?.price ?? sentinel;
           break;
         }
         case "currentValue": {
-          const sentinel = sortDir === "asc" ? NULL_SENTINEL_ASC : NULL_SENTINEL_DESC;
-          vA = calcCurrentValue(a, qa?.price) ?? sentinel;
-          vB = calcCurrentValue(b, qb?.price) ?? sentinel;
+          const sentinel = sortDir === "asc" ? nullAsc : nullDesc;
+          leftValue = calcCurrentValue(left, leftQuote?.price) ?? sentinel;
+          rightValue = calcCurrentValue(right, rightQuote?.price) ?? sentinel;
           break;
         }
         case "gl": {
-          const sentinel = sortDir === "asc" ? NULL_SENTINEL_ASC : NULL_SENTINEL_DESC;
-          vA = calcUnrealizedGL(a, qa?.price) ?? sentinel;
-          vB = calcUnrealizedGL(b, qb?.price) ?? sentinel;
+          const sentinel = sortDir === "asc" ? nullAsc : nullDesc;
+          leftValue = calcUnrealizedGL(left, leftQuote?.price) ?? sentinel;
+          rightValue = calcUnrealizedGL(right, rightQuote?.price) ?? sentinel;
           break;
         }
       }
 
-      if (typeof vA === "string" && typeof vB === "string") {
-        return sortDir === "asc" ? vA.localeCompare(vB) : vB.localeCompare(vA);
+      if (typeof leftValue === "string" && typeof rightValue === "string") {
+        return sortDir === "asc"
+          ? leftValue.localeCompare(rightValue)
+          : rightValue.localeCompare(leftValue);
       }
-      return sortDir === "asc" ? Number(vA) - Number(vB) : Number(vB) - Number(vA);
-    });
-  }, [filtered, sortKey, sortDir, quotesMap]);
 
-  const totalCostBasis = filtered.reduce((acc, h) => acc + calcCostBasis(h), 0);
-  const totalDivCollected = filtered.reduce((acc, h) => acc + h.dividendCollected, 0);
-  const totalExpIncome = filtered.reduce((acc, h) => acc + h.expectedIncome, 0);
+      return sortDir === "asc"
+        ? Number(leftValue) - Number(rightValue)
+        : Number(rightValue) - Number(leftValue);
+    });
+  }, [filtered, quotesMap, sortDir, sortKey]);
+
+  const totalCostBasis = filtered.reduce((acc, holding) => acc + calcCostBasis(holding), 0);
+  const totalDivCollected = filtered.reduce((acc, holding) => acc + holding.dividendCollected, 0);
+  const totalExpIncome = filtered.reduce((acc, holding) => acc + holding.expectedIncome, 0);
 
   if (holdings.length === 0) {
     return (
@@ -354,22 +369,20 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border flex-wrap gap-y-2">
-        <span className="text-xs font-semibold text-foreground mr-1">Bucket:</span>
-        {(["ALL", "BLUE", "GREEN"] as BucketFilter[]).map((b) => (
+        <span className="text-xs font-semibold text-foreground mr-1">Container:</span>
+        {(["ALL", ...ACTIVE_CONTAINERS] as ContainerFilter[]).map((container) => (
           <button
-            key={b}
-            onClick={() => setBucketFilter(b)}
+            key={container}
+            onClick={() => setContainerFilter(container)}
             className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-              bucketFilter === b
-                ? b === "BLUE"
-                  ? "bg-blue-dim text-blue border border-blue/40"
-                  : b === "GREEN"
-                  ? "bg-green-dim text-green border border-green/40"
-                  : "bg-primary text-primary-foreground"
+              containerFilter === container
+                ? container === "ALL"
+                  ? "bg-primary text-primary-foreground"
+                  : `${containerAccent(container).dim} ${containerAccent(container).text} border ${containerAccent(container).border}`
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
-            {b === "ALL" ? "ALL" : bucketLabel(b as BucketClass)}
+            {container === "ALL" ? "ALL" : containerLabel(container)}
           </button>
         ))}
 
@@ -385,8 +398,8 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
         <table className="w-full text-xs min-w-[1180px]">
           <thead>
             <tr className="border-b border-border/60 bg-muted/20">
-              <SortHeader label="Bucket" sortKey="bucket" current={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortHeader label="Wallet" sortKey="wallet" current={sortKey} dir={sortDir} onSort={handleSort} />
+              <SortHeader label="Container" sortKey="container" current={sortKey} dir={sortDir} onSort={handleSort} />
+              <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Parent</th>
               <SortHeader label="Ticker" sortKey="ticker" current={sortKey} dir={sortDir} onSort={handleSort} />
               <SortHeader label="Shares" sortKey="shares" current={sortKey} dir={sortDir} onSort={handleSort} />
               <SortHeader label="Entry Date" sortKey="entryDate" current={sortKey} dir={sortDir} onSort={handleSort} />
@@ -404,12 +417,24 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
             </tr>
           </thead>
           <tbody>
-            {sorted.map((h) => {
-              const qEntry = quotesMap.get(h.ticker);
-              return editingId === h.id ? (
-                <EditRow key={h.id} holding={h} onSave={(patch) => handleSaveEdit(h.id, patch)} onCancel={() => setEditingId(null)} />
+            {sorted.map((holding) => {
+              const quoteEntry = quotesMap.get(holding.ticker);
+              return editingId === holding.id ? (
+                <EditRow
+                  key={holding.id}
+                  holding={holding}
+                  onSave={(patch) => handleSaveEdit(holding.id, patch)}
+                  onCancel={() => setEditingId(null)}
+                />
               ) : (
-                <HoldingRow key={h.id} holding={h} quote={qEntry?.quote} quoteLoading={qEntry?.loading ?? false} onEdit={() => setEditingId(h.id)} onDelete={() => handleDelete(h.id)} />
+                <HoldingRow
+                  key={holding.id}
+                  holding={holding}
+                  quote={quoteEntry?.quote}
+                  quoteLoading={quoteEntry?.loading ?? false}
+                  onEdit={() => setEditingId(holding.id)}
+                  onDelete={() => handleDelete(holding.id)}
+                />
               );
             })}
           </tbody>

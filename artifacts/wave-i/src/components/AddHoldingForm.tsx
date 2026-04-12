@@ -1,6 +1,12 @@
 import { useState } from "react";
-import { BLUE_INSTRUMENTS, getBucketInstruments } from "@/lib/instruments";
-import { addHolding, type Holding, type BucketClass, type WalletClass } from "@/lib/portfolio";
+import { getBucketScopedInstruments } from "@/lib/loadInstruments";
+import {
+  addHolding,
+  placementFromContainer,
+  type Holding,
+  type ActiveContainerClass,
+} from "@/lib/portfolio";
+import { ACTIVE_CONTAINERS, containerLabel } from "@/lib/containerModel";
 import { Plus, X } from "lucide-react";
 
 interface AddHoldingFormProps {
@@ -8,10 +14,11 @@ interface AddHoldingFormProps {
   onHoldingsChange: (h: Holding[]) => void;
 }
 
+const DEFAULT_CONTAINER: ActiveContainerClass = "BLUE";
+
 const EMPTY_FORM = {
-  bucket: "BLUE" as BucketClass,
-  wallet: "" as "" | WalletClass,
-  ticker: BLUE_INSTRUMENTS[0].ticker,
+  container: DEFAULT_CONTAINER,
+  ticker: getBucketScopedInstruments(DEFAULT_CONTAINER)[0]?.ticker ?? "",
   shares: "",
   entryDate: "",
   entryPrice: "",
@@ -21,14 +28,6 @@ const EMPTY_FORM = {
   expectedIncome: "",
   notes: "",
 };
-
-function getWalletOptions(bucket: BucketClass): Array<{ value: "" | WalletClass; label: string }> {
-  return [
-    { value: "", label: "—" },
-    { value: "WHITE", label: "|W| WHITE" },
-    ...(bucket === "GREEN" ? [{ value: "MINT" as const, label: "|M| MINT" }] : []),
-  ];
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -51,34 +50,42 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
   const [error, setError] = useState("");
 
   function set(key: keyof typeof EMPTY_FORM, value: string) {
-    setForm((f) => {
-      const next = { ...f, [key]: value };
-      if (key === "bucket") {
-        const instruments = getBucketInstruments(value as BucketClass);
-        next.ticker = instruments[0].ticker;
-        if (value !== "GREEN" && next.wallet === "MINT") {
-          next.wallet = "";
-        }
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "container") {
+        const scoped = getBucketScopedInstruments(value as ActiveContainerClass);
+        next.ticker = scoped[0]?.ticker ?? "";
       }
       return next;
     });
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError("");
 
     const shares = parseFloat(form.shares);
     const entryPrice = parseFloat(form.entryPrice);
 
-    if (!form.ticker) { setError("Ticker is required."); return; }
-    if (isNaN(shares) || shares <= 0) { setError("Shares must be a positive number."); return; }
-    if (isNaN(entryPrice) || entryPrice <= 0) { setError("Entry price must be a positive number."); return; }
-    if (form.wallet === "MINT" && form.bucket !== "GREEN") { setError("|M| may only be assigned inside [G]."); return; }
+    if (!form.ticker) {
+      setError("Ticker is required.");
+      return;
+    }
+    if (Number.isNaN(shares) || shares <= 0) {
+      setError("Shares must be a positive number.");
+      return;
+    }
+    if (Number.isNaN(entryPrice) || entryPrice <= 0) {
+      setError("Entry price must be a positive number.");
+      return;
+    }
+
+    const placement = placementFromContainer(form.container);
 
     const holding: Omit<Holding, "id"> = {
-      bucket: form.bucket,
-      wallet: form.wallet || undefined,
+      container: form.container,
+      bucket: placement.bucket,
+      wallet: placement.wallet,
       ticker: form.ticker,
       shares,
       entryDate: form.entryDate,
@@ -95,8 +102,7 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
     setOpen(false);
   }
 
-  const bucketInstruments = getBucketInstruments(form.bucket);
-  const walletOptions = getWalletOptions(form.bucket);
+  const scopedInstruments = getBucketScopedInstruments(form.container);
 
   if (!open) {
     return (
@@ -115,7 +121,11 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground">Add Holding</h3>
         <button
-          onClick={() => { setOpen(false); setError(""); setForm(EMPTY_FORM); }}
+          onClick={() => {
+            setOpen(false);
+            setError("");
+            setForm(EMPTY_FORM);
+          }}
           className="text-muted-foreground hover:text-foreground"
         >
           <X size={16} />
@@ -124,26 +134,15 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <Field label="Bucket">
+          <Field label="Container">
             <select
-              value={form.bucket}
-              onChange={(e) => set("bucket", e.target.value)}
+              value={form.container}
+              onChange={(event) => set("container", event.target.value)}
               className={selectCls}
             >
-              <option value="BLUE">[B] BLUE</option>
-              <option value="GREEN">[G] GREEN</option>
-            </select>
-          </Field>
-
-          <Field label="Wallet">
-            <select
-              value={form.wallet}
-              onChange={(e) => set("wallet", e.target.value)}
-              className={selectCls}
-            >
-              {walletOptions.map((wallet) => (
-                <option key={wallet.value || "none"} value={wallet.value}>
-                  {wallet.label}
+              {ACTIVE_CONTAINERS.map((container) => (
+                <option key={container} value={container}>
+                  {containerLabel(container)}
                 </option>
               ))}
             </select>
@@ -152,48 +151,48 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
           <Field label="Instrument">
             <select
               value={form.ticker}
-              onChange={(e) => set("ticker", e.target.value)}
+              onChange={(event) => set("ticker", event.target.value)}
               className={selectCls}
             >
-              {bucketInstruments.map((i) => (
-                <option key={i.ticker} value={i.ticker}>
-                  {i.ticker} — {i.name}
+              {scopedInstruments.map((instrument) => (
+                <option key={instrument.ticker} value={instrument.ticker}>
+                  {instrument.ticker} — {instrument.name}
                 </option>
               ))}
             </select>
           </Field>
 
           <Field label="Shares">
-            <input type="number" value={form.shares} onChange={(e) => set("shares", e.target.value)} placeholder="e.g. 100" step="any" min="0" className={inputCls} />
+            <input type="number" value={form.shares} onChange={(event) => set("shares", event.target.value)} placeholder="e.g. 100" step="any" min="0" className={inputCls} />
           </Field>
 
           <Field label="Entry price $">
-            <input type="number" value={form.entryPrice} onChange={(e) => set("entryPrice", e.target.value)} placeholder="e.g. 18.50" step="0.01" min="0" className={inputCls} />
+            <input type="number" value={form.entryPrice} onChange={(event) => set("entryPrice", event.target.value)} placeholder="e.g. 18.50" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <Field label="Entry date">
-            <input type="date" value={form.entryDate} onChange={(e) => set("entryDate", e.target.value)} className={inputCls} />
+            <input type="date" value={form.entryDate} onChange={(event) => set("entryDate", event.target.value)} className={inputCls} />
           </Field>
 
           <Field label="Dividend collected $">
-            <input type="number" value={form.dividendCollected} onChange={(e) => set("dividendCollected", e.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
+            <input type="number" value={form.dividendCollected} onChange={(event) => set("dividendCollected", event.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <Field label="Latest dip date">
-            <input type="date" value={form.latestDipDate} onChange={(e) => set("latestDipDate", e.target.value)} className={inputCls} />
+            <input type="date" value={form.latestDipDate} onChange={(event) => set("latestDipDate", event.target.value)} className={inputCls} />
           </Field>
 
           <Field label="DRiP amount $">
-            <input type="number" value={form.dripAmount} onChange={(e) => set("dripAmount", e.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
+            <input type="number" value={form.dripAmount} onChange={(event) => set("dripAmount", event.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <Field label="Expected income/yr $">
-            <input type="number" value={form.expectedIncome} onChange={(e) => set("expectedIncome", e.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
+            <input type="number" value={form.expectedIncome} onChange={(event) => set("expectedIncome", event.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
           </Field>
 
           <div className="col-span-2 md:col-span-3">
             <Field label="Notes">
-              <input type="text" value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Optional notes…" className={inputCls} />
+              <input type="text" value={form.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Optional notes…" className={inputCls} />
             </Field>
           </div>
         </div>

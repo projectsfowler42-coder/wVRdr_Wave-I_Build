@@ -1,22 +1,21 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchQuote, type Quote } from "@/lib/market";
-import { BLUE_INSTRUMENTS, GREEN_INSTRUMENTS, type Instrument } from "@/lib/instruments";
+import { getBucketScopedInstruments, getInstrumentRecord } from "@/lib/loadInstruments";
+import type { ActiveContainerClass } from "@/lib/portfolio";
+import { ACTIVE_CONTAINERS, containerAccent, containerLabel } from "@/lib/containerModel";
 import QuoteCard from "@/components/QuoteCard";
 import { ChevronDown } from "lucide-react";
 
-interface BucketPanelProps {
-  bucket: "BLUE" | "GREEN";
-  instruments: Instrument[];
+interface ContainerPanelProps {
+  container: ActiveContainerClass;
   defaultTicker: string;
 }
 
-function BucketPanel({ bucket, instruments, defaultTicker }: BucketPanelProps) {
+function ContainerPanel({ container, defaultTicker }: ContainerPanelProps) {
+  const instruments = getBucketScopedInstruments(container);
   const [selected, setSelected] = useState(defaultTicker);
-  const isBlue = bucket === "BLUE";
-  const accentClass = isBlue ? "text-blue" : "text-green";
-  const borderClass = isBlue ? "border-blue/40" : "border-green/40";
-  const dimClass = isBlue ? "bg-blue-dim" : "bg-green-dim";
+  const accent = containerAccent(container);
 
   const { data: quote, isLoading, isError } = useQuery<Quote>({
     queryKey: ["quote", selected],
@@ -24,49 +23,41 @@ function BucketPanel({ bucket, instruments, defaultTicker }: BucketPanelProps) {
     refetchInterval: 90_000,
     staleTime: 60_000,
     retry: 2,
+    enabled: Boolean(selected),
   });
 
-  const instr = instruments.find((instrument) => instrument.ticker === selected);
+  const instrument = getInstrumentRecord(selected);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className={`flex items-center gap-2 rounded-lg border ${borderClass} ${dimClass} px-3 py-2`}>
-        <span className={`text-[10px] font-bold uppercase tracking-widest w-12 shrink-0 ${accentClass}`}>
-          {bucket}
+      <div className={`flex items-center gap-2 rounded-lg border ${accent.border} ${accent.dim} px-3 py-2`}>
+        <span className={`text-[10px] font-bold uppercase tracking-widest w-16 shrink-0 ${accent.text}`}>
+          {containerLabel(container)}
         </span>
         <div className="relative flex-1">
           <select
             value={selected}
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={(event) => setSelected(event.target.value)}
             className="w-full bg-transparent text-sm font-semibold text-foreground appearance-none pr-6 focus:outline-none cursor-pointer"
           >
-            {instruments.map((instrument) => (
-              <option
-                key={instrument.ticker}
-                value={instrument.ticker}
-                className="bg-card text-foreground"
-              >
-                {instrument.ticker} — {instrument.name}
+            {instruments.map((entry) => (
+              <option key={entry.ticker} value={entry.ticker} className="bg-card text-foreground">
+                {entry.ticker} — {entry.name}
               </option>
             ))}
           </select>
-          <ChevronDown
-            size={13}
-            className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-          />
+          <ChevronDown size={13} className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         </div>
-        {instr && (
+        {instrument ? (
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {instr.type}
-            </span>
-            <span className="text-[10px] text-muted-foreground">{instr.divFreq}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{instrument.subtype}</span>
+            <span className="text-[10px] text-muted-foreground">{instrument.payoutFrequency ?? "varies"}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       <QuoteCard
-        label={bucket}
+        label={containerLabel(container)}
         ticker={selected}
         quote={quote}
         loading={isLoading}
@@ -78,17 +69,14 @@ function BucketPanel({ bucket, instruments, defaultTicker }: BucketPanelProps) {
 
 export default function BucketQuoteBoard() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <BucketPanel
-        bucket="BLUE"
-        instruments={BLUE_INSTRUMENTS}
-        defaultTicker={BLUE_INSTRUMENTS[0]?.ticker ?? ""}
-      />
-      <BucketPanel
-        bucket="GREEN"
-        instruments={GREEN_INSTRUMENTS}
-        defaultTicker={GREEN_INSTRUMENTS[0]?.ticker ?? ""}
-      />
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {ACTIVE_CONTAINERS.map((container) => (
+        <ContainerPanel
+          key={container}
+          container={container}
+          defaultTicker={getBucketScopedInstruments(container)[0]?.ticker ?? ""}
+        />
+      ))}
     </div>
   );
 }

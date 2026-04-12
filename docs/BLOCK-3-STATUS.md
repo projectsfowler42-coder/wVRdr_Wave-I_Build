@@ -8,10 +8,10 @@ Selected Block-3 elements are now operative inside the frontend-only Wave-I runt
 - premium shell language
 - severity ladder rendering
 - Ghost Chassis inspection surface
-- canonical local instrument-database preparation for M / W / B / G scope
+- canonical local instrument-database runtime wiring for `|W| |M| [B] [G]`
+- container-aware quote-board and portfolio flows
 
-Full Block-3 semantic promotion is still in progress.
-It is **not** yet the sole runtime authority for the live shell.
+Full Block-3 semantic promotion is still not the sole runtime authority.
 Block-2 foundations remain operative underneath the mounted app.
 
 ## What exists on GitHub now
@@ -24,22 +24,23 @@ Block-2 foundations remain operative underneath the mounted app.
 ### 2. Operative Block-3 elements
 - `artifacts/wave-i/src/block3/ui/SeverityLadder.tsx`
 - `artifacts/wave-i/src/inspection/InspectorPanel.tsx`
+- container-aware runtime surfaces driven by local Wave-I doctrine data
 - related Ghost Chassis runtime scaffolding under `artifacts/wave-i/src/runtime/`
 
 ## What does not exist yet
 
-### 1. Full Block-3 runtime authority
-Block-3 has operative elements, but not full replacement authority over the existing Wave-I runtime.
+### 1. Full Block-3 replacement authority
+Block-3 has operative elements, but not full replacement authority over every existing Wave-I runtime concern.
 
-### 2. Full release promotion
-No stable Ghost Image release should be treated as real until it is generated and rollback-addressable.
+### 2. Full stable release proof
+No Ghost Image-backed release should be treated as stable until a real build writes release metadata and rollback pointers.
 
 ## Repo interpretation rule
 
 This repo should now be read as:
 - Block-2 operative foundation
 - Block-3 partially promoted and operative where explicitly landed
-- B.4-A Ghost Chassis architecture actively landing
+- B.4-A Ghost Chassis architecture landed on `main`
 
 ## Why this file exists
 

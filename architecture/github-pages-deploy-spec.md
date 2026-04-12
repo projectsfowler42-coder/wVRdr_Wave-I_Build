@@ -2,7 +2,7 @@
 
 ## Intent
 
-Wave-I is frontend-only and already has a Vite build surface that supports a configurable base path and emits static files to `artifacts/wave-i/dist/public`.
+Wave-I is frontend-only and has a Vite build surface that supports a configurable base path and emits static files to `artifacts/wave-i/dist/public`.
 
 ## Static deploy target
 
@@ -15,6 +15,7 @@ Wave-I is frontend-only and already has a Vite build surface that supports a con
 
 The Wave-I package provides:
 - `pnpm --filter @workspace/wave-i build`
+- `pnpm --filter @workspace/wave-i build:ghost`
 - `BASE_PATH` environment override for Vite
 - static output under `dist/public`
 
@@ -23,30 +24,31 @@ The Wave-I package provides:
 1. install workspace dependencies
 2. run workspace typecheck
 3. build `@workspace/wave-i`
-4. publish `artifacts/wave-i/dist/public` to Pages
-5. record release metadata
-6. record Ghost Image metadata for the stable artifact
+4. generate Ghost Image metadata
+5. publish `artifacts/wave-i/dist/public` to Pages
+6. record release metadata
 
 ## Required deploy checks
 
 - typecheck passes
 - build completes
 - static artifact directory exists
-- release metadata resolves
+- Ghost Image metadata resolves
 - rollback target resolves
 
-## Required Pages workflow shape
+## Implemented workflow shape
 
-The repository should run a Pages deployment workflow on `main` and `workflow_dispatch` with:
+The repository now includes a Pages deployment workflow on `main` and `workflow_dispatch` with:
 - checkout
 - pnpm setup
 - Node setup
 - `BASE_PATH=/${REPOSITORY_NAME}/`
 - `pnpm install --frozen-lockfile`
 - `pnpm run typecheck`
-- `pnpm --filter @workspace/wave-i build`
+- `pnpm --filter @workspace/wave-i run build:ghost`
 - upload Pages artifact from `artifacts/wave-i/dist/public`
 - deploy Pages artifact
+- commit Ghost Image metadata back into `ghost/`
 
 ## Ghost Image expectation
 
@@ -57,7 +59,3 @@ Every stable Pages artifact should be paired with:
 - schema version map
 - restore manifest
 - rollback predecessor
-
-## Note
-
-This document exists because the direct workflow-file write path was tool-blocked during repo operations. The deploy path itself is still the intended canonical path for Wave-I static release.

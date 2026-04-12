@@ -13,16 +13,33 @@ Wave-I is the frontend-only, truth-first operator surface for WaveRider.
 - provenance, truth classes, source classes, and quarantine remain explicit
 - weak material may be retained but must not silently become authoritative truth
 
-## Not canonical anymore
-Wave-I is not canonically defined as a BDC-only or mREIT-only product.
+## Runtime scope now mounted in repo
+- `|W| WHITE`
+- `|M| MINT`
+- `[B] BLUE`
+- `[G] GREEN`
 
-## Current branch status
-This branch keeps the current shell intact while adding an additive Block-2 module spine under `artifacts/wave-i/src/block2/`.
+## What is now landed on GitHub
+- frontend-only Wave-I app under `artifacts/wave-i/`
+- B.4-A Ghost Chassis runtime scaffolding under `artifacts/wave-i/src/runtime/`
+- contract types under `artifacts/wave-i/src/contracts/`
+- inspection surface under `artifacts/wave-i/src/inspection/`
+- canonical local Wave-I instrument DB under `artifacts/wave-i/src/data/`
+- partial Block-3 premium-shell promotion under `artifacts/wave-i/src/block3/`
+- Ghost Image scripts under `scripts/`
+- GitHub Pages workflow under `.github/workflows/deploy-wave-i.yml`
 
-## Remaining blockers
-1. replace canonical `vite.config.ts` with the static-friendly equivalent while keeping Vite
-2. wire bucket / wallet semantics into the live holdings model and UI
-3. wire `[Harvest Data]` into the live shell
-4. wire provenance / quarantine / conflict visibility into the live shell
-5. add container-aware instrument gating
-6. add a test runner and first Block-2 tests
+## Current repo state
+Wave-I is no longer just a Block-2 shell with quarantined Block-3 references.
+
+The repo now contains:
+- Block-2 operative foundations
+- partial Block-3 promotion into mounted runtime
+- B.4-A Ghost Chassis landing on `main`
+
+## Remaining proof gates
+1. run typecheck cleanly
+2. run tests cleanly
+3. run `build:ghost`
+4. publish the Pages artifact
+5. confirm generated Ghost Image metadata on a real release build
