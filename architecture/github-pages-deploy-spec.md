@@ -19,22 +19,34 @@ The Wave-I package provides:
 - `BASE_PATH` environment override for Vite
 - static output under `dist/public`
 
+The repo root provides:
+- `pnpm run typecheck`
+- `pnpm run test:wave-i`
+- `pnpm run release:validate`
+
 ## Release flow
 
 1. install workspace dependencies
 2. run workspace typecheck
-3. build `@workspace/wave-i`
-4. generate Ghost Image metadata
-5. publish `artifacts/wave-i/dist/public` to Pages
-6. record release metadata
+3. run Wave-I tests
+4. build `@workspace/wave-i`
+5. generate Ghost Image metadata
+6. validate Ghost release package
+7. publish `artifacts/wave-i/dist/public` to Pages
+8. run smoke check against deployed Pages URL
+9. record release metadata
 
 ## Required deploy checks
 
 - typecheck passes
+- tests pass
 - build completes
 - static artifact directory exists
 - Ghost Image metadata resolves
 - rollback target resolves
+- smoke check returns HTTP 200
+- smoke check HTML contains `Wave-I`
+- smoke check HTML references built assets
 
 ## Implemented workflow shape
 
@@ -45,9 +57,12 @@ The repository now includes a Pages deployment workflow on `main` and `workflow_
 - `BASE_PATH=/${REPOSITORY_NAME}/`
 - `pnpm install --frozen-lockfile`
 - `pnpm run typecheck`
+- `pnpm run test:wave-i`
 - `pnpm --filter @workspace/wave-i run build:ghost`
+- artifact/registry/release-package validation
 - upload Pages artifact from `artifacts/wave-i/dist/public`
 - deploy Pages artifact
+- smoke check deployed Pages URL
 - commit Ghost Image metadata back into `ghost/`
 
 ## Ghost Image expectation
@@ -59,3 +74,4 @@ Every stable Pages artifact should be paired with:
 - schema version map
 - restore manifest
 - rollback predecessor
+- proof manifest

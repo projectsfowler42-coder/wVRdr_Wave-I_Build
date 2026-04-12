@@ -88,6 +88,27 @@ const integrityHash = crypto
 
 ghostImage.integrityHash = integrityHash;
 
+const checksums = {
+  artifactFingerprint,
+  dependencyLockFingerprint,
+  configFingerprint,
+  integrityHash,
+};
+
+const proof = {
+  release,
+  createdAt: ghostImage.createdAt,
+  artifactPath: restoreManifest.artifactPath,
+  artifactFingerprint,
+  dependencyLockFingerprint,
+  configFingerprint,
+  integrityHash,
+  previousStablePointer: restoreManifest.previousStablePointer,
+  modulePointerMap: ghostImage.modulePointerMap,
+  contractVersionMap,
+  schemaVersionMap,
+};
+
 fs.writeFileSync(
   path.join(releaseDir, "ghost-image.json"),
   JSON.stringify(ghostImage, null, 2) + "\n",
@@ -98,20 +119,15 @@ fs.writeFileSync(
 );
 fs.writeFileSync(
   path.join(releaseDir, "checksums.json"),
-  JSON.stringify(
-    {
-      artifactFingerprint,
-      dependencyLockFingerprint,
-      configFingerprint,
-      integrityHash,
-    },
-    null,
-    2,
-  ) + "\n",
+  JSON.stringify(checksums, null, 2) + "\n",
 );
 fs.writeFileSync(
   path.join(releaseDir, "restore-manifest.json"),
   JSON.stringify(restoreManifest, null, 2) + "\n",
+);
+fs.writeFileSync(
+  path.join(releaseDir, "proof.json"),
+  JSON.stringify(proof, null, 2) + "\n",
 );
 
 const nextRegistry = {

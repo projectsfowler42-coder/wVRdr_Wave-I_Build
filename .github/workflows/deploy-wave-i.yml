@@ -44,11 +44,23 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Test Wave-I
+        run: pnpm run test:wave-i
+
       - name: Build Wave-I and Ghost Image
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
           WAVE_I_RELEASE_VERSION: pages-${{ github.sha }}
         run: pnpm --filter @workspace/wave-i run build:ghost
+
+      - name: Validate artifact root exists
+        run: test -d artifacts/wave-i/dist/public
+
+      - name: Validate Ghost registry exists
+        run: test -f ghost/registry.json
+
+      - name: Validate release package
+        run: pnpm run release:validate
 
       - name: Commit Ghost Image metadata
         run: |
@@ -71,3 +83,8 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Smoke check deployed Pages
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node scripts/smoke-check-pages.mjs

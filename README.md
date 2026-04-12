@@ -29,6 +29,25 @@ Wave-I is the frontend-only, truth-first operator surface for WaveRider.
 - Ghost Image scripts under `scripts/`
 - GitHub Pages workflow under `.github/workflows/deploy-wave-i.yml`
 
+## Automated release proof
+Wave-I release proof is now designed to be automated from `main`.
+
+A valid automated proof run requires all of the following:
+- workspace typecheck passes
+- Wave-I tests pass
+- Wave-I static build passes
+- Ghost Image metadata is generated
+- Ghost release package validates
+- Pages artifact uploads and deploys
+- deployed Pages site passes smoke check
+
+Stable release proof is not just “build succeeded”.
+It is:
+- green workflow
+- Ghost Image package
+- rollback-addressable registry pointer
+- successful Pages smoke check
+
 ## Current repo state
 Wave-I is no longer just a Block-2 shell with quarantined Block-3 references.
 
@@ -36,10 +55,9 @@ The repo now contains:
 - Block-2 operative foundations
 - partial Block-3 promotion into mounted runtime
 - B.4-A Ghost Chassis landing on `main`
+- release-proof automation path on `main`
 
 ## Remaining proof gates
-1. run typecheck cleanly
-2. run tests cleanly
-3. run `build:ghost`
-4. publish the Pages artifact
-5. confirm generated Ghost Image metadata on a real release build
+1. run the workflow successfully on `main`
+2. confirm Pages publishes cleanly
+3. confirm generated Ghost release metadata is committed by the workflow
