@@ -1,0 +1,73 @@
+name: Deploy Wave-I
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "ghost/releases/**"
+      - "ghost/registry.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build Wave-I and Ghost Image
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+          WAVE_I_RELEASE_VERSION: pages-${{ github.sha }}
+        run: pnpm --filter @workspace/wave-i run build:ghost
+
+      - name: Commit Ghost Image metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ghost
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): record Wave-I Ghost Image for $GITHUB_SHA"
+            git push
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/wave-i/dist/public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -26,7 +26,7 @@ function BucketPanel({ bucket, instruments, defaultTicker }: BucketPanelProps) {
     retry: 2,
   });
 
-  const instr = instruments.find((i) => i.ticker === selected);
+  const instr = instruments.find((instrument) => instrument.ticker === selected);
 
   return (
     <div className="flex flex-col gap-3">
@@ -40,17 +40,26 @@ function BucketPanel({ bucket, instruments, defaultTicker }: BucketPanelProps) {
             onChange={(e) => setSelected(e.target.value)}
             className="w-full bg-transparent text-sm font-semibold text-foreground appearance-none pr-6 focus:outline-none cursor-pointer"
           >
-            {instruments.map((i) => (
-              <option key={i.ticker} value={i.ticker} className="bg-card text-foreground">
-                {i.ticker} — {i.name}
+            {instruments.map((instrument) => (
+              <option
+                key={instrument.ticker}
+                value={instrument.ticker}
+                className="bg-card text-foreground"
+              >
+                {instrument.ticker} — {instrument.name}
               </option>
             ))}
           </select>
-          <ChevronDown size={13} className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <ChevronDown
+            size={13}
+            className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          />
         </div>
         {instr && (
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{instr.type}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              {instr.type}
+            </span>
             <span className="text-[10px] text-muted-foreground">{instr.divFreq}</span>
           </div>
         )}
@@ -73,12 +82,12 @@ export default function BucketQuoteBoard() {
       <BucketPanel
         bucket="BLUE"
         instruments={BLUE_INSTRUMENTS}
-        defaultTicker="ARCC"
+        defaultTicker={BLUE_INSTRUMENTS[0]?.ticker ?? ""}
       />
       <BucketPanel
         bucket="GREEN"
         instruments={GREEN_INSTRUMENTS}
-        defaultTicker="AGNC"
+        defaultTicker={GREEN_INSTRUMENTS[0]?.ticker ?? ""}
       />
     </div>
   );

@@ -13,6 +13,8 @@ import ResearchLinks from "@/components/ResearchLinks";
 import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
+import SeverityLadder from "@/block3/ui/SeverityLadder";
+import InspectorPanel from "@/inspection/InspectorPanel";
 
 type Tab = "warroom" | "portfolio";
 
@@ -30,12 +32,18 @@ export default function WarRoom() {
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
 
   const blueTicker = useMemo(
-    () => holdings.find((holding) => holding.bucket === "BLUE")?.ticker ?? getBucketInstruments("BLUE")[0]?.ticker ?? "",
+    () =>
+      holdings.find((holding) => holding.bucket === "BLUE")?.ticker ??
+      getBucketInstruments("BLUE")[0]?.ticker ??
+      "",
     [holdings],
   );
 
   const greenTicker = useMemo(
-    () => holdings.find((holding) => holding.bucket === "GREEN")?.ticker ?? getBucketInstruments("GREEN")[0]?.ticker ?? "",
+    () =>
+      holdings.find((holding) => holding.bucket === "GREEN")?.ticker ??
+      getBucketInstruments("GREEN")[0]?.ticker ??
+      "",
     [holdings],
   );
 
@@ -108,6 +116,10 @@ export default function WarRoom() {
       {tab === "warroom" && (
         <main className="flex-1 p-4 md:p-6 space-y-5 max-w-7xl mx-auto w-full">
           <section>
+            <SeverityLadder />
+          </section>
+
+          <section>
             <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Quote Board</h2>
             <BucketQuoteBoard />
           </section>
@@ -135,10 +147,16 @@ export default function WarRoom() {
             />
           </section>
 
+          <section>
+            <InspectorPanel />
+          </section>
+
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
             Wave-I | truth-first | [B] / [G] buckets | |W| / |M| wallets | frontend-only operator shell
             <br />
-            <span className="opacity-60">[Harvest Data] inventories tracked symbols locally and reports updated and skipped counts without backend services.</span>
+            <span className="opacity-60">
+              [Harvest Data] inventories tracked symbols locally and reports updated and skipped counts without backend services.
+            </span>
           </footer>
         </main>
       )}
