@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchQuote, type Quote } from "@/lib/market";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { getBucketInstruments } from "@/lib/instruments";
+import { listWaveIInstruments } from "@/lib/loadInstruments";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
 import AuditPanels from "@/block2/ui/AuditPanels";
 import MarketTape from "@/components/MarketTape";
@@ -14,6 +15,7 @@ import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
 import SeverityLadder from "@/block3/ui/SeverityLadder";
+import WaveRiderDoctrinePanel from "@/doctrine/WaveRiderDoctrinePanel";
 import InspectorPanel from "@/inspection/InspectorPanel";
 
 type Tab = "warroom" | "portfolio";
@@ -33,7 +35,7 @@ export default function WarRoom() {
 
   const blueTicker = useMemo(
     () =>
-      holdings.find((holding) => holding.bucket === "BLUE")?.ticker ??
+      holdings.find((holding) => holding.container === "BLUE")?.ticker ??
       getBucketInstruments("BLUE")[0]?.ticker ??
       "",
     [holdings],
@@ -41,7 +43,7 @@ export default function WarRoom() {
 
   const greenTicker = useMemo(
     () =>
-      holdings.find((holding) => holding.bucket === "GREEN")?.ticker ??
+      holdings.find((holding) => holding.container === "GREEN")?.ticker ??
       getBucketInstruments("GREEN")[0]?.ticker ??
       "",
     [holdings],
@@ -82,9 +84,10 @@ export default function WarRoom() {
     setHarvestState("running");
 
     const sourceRows = [
-      ...getBucketInstruments("BLUE").map((instrument) => `[B]::${instrument.ticker}`),
-      ...getBucketInstruments("GREEN").map((instrument) => `[G]::${instrument.ticker}`),
-      ...holdings.map((holding) => `${holding.bucket}::${holding.wallet ?? "-"}::${holding.ticker}`),
+      ...listWaveIInstruments().map(
+        (instrument) => `${instrument.canonicalWaveIBucket}::${instrument.ticker}`,
+      ),
+      ...holdings.map((holding) => `${holding.container}::${holding.ticker}`),
     ];
 
     const unique = new Set(sourceRows);
@@ -134,6 +137,10 @@ export default function WarRoom() {
           </section>
 
           <section>
+            <WaveRiderDoctrinePanel />
+          </section>
+
+          <section>
             <ResearchLinks />
           </section>
 
@@ -152,10 +159,10 @@ export default function WarRoom() {
           </section>
 
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I | truth-first | [B] / [G] buckets | |W| / |M| wallets | frontend-only operator shell
+            Wave-I | truth-first | active runtime scope |W| / |M| / [B] / [G] | frontend-only operator shell
             <br />
             <span className="opacity-60">
-              [Harvest Data] inventories tracked symbols locally and reports updated and skipped counts without backend services.
+              [Harvest Data] inventories tracked symbols locally from the canonical Wave-I database and reports updated and skipped counts without backend services.
             </span>
           </footer>
         </main>
@@ -172,7 +179,7 @@ export default function WarRoom() {
           <PortfolioTable holdings={holdings} onHoldingsChange={setHoldings} />
 
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I | portfolio data stored locally | bucket and wallet semantics active
+            Wave-I | portfolio data stored locally | M/W/B/G container semantics active
           </footer>
         </main>
       )}

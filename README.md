@@ -16,13 +16,23 @@ Wave-I is the frontend-only, truth-first operator surface for WaveRider.
 ## Not canonical anymore
 Wave-I is not canonically defined as a BDC-only or mREIT-only product.
 
+## Imported WaveRider overlays now tracked in-repo
+- system spine: Aggregator / Gate / Coach / System
+- operator discipline: tactical brake, explicit approval, contradiction custody, rules library
+- prop-firm stack: Constraint Engine, PreCog, Monte Carlo, Playbook Compiler, Capital Translator, Meta Optimizer, Risk Governor, Output Layer, Evolution Engine
+
 ## Current branch status
-This branch keeps the current shell intact while adding an additive Block-2 module spine under `artifacts/wave-i/src/block2/`.
+This branch keeps the current shell intact while exposing imported WaveRider doctrine inside the live frontend.
+Current scope includes:
+- local M/W/B/G instrument custody
+- portfolio tracking stored in browser local storage
+- frontend truth / audit / quarantine visibility
+- inspection surfaces for runtime and release state
+- an additive doctrine panel that compares the broader WaveRider documents against current repo coverage
 
 ## Remaining blockers
-1. replace canonical `vite.config.ts` with the static-friendly equivalent while keeping Vite
-2. wire bucket / wallet semantics into the live holdings model and UI
-3. wire `[Harvest Data]` into the live shell
-4. wire provenance / quarantine / conflict visibility into the live shell
-5. add container-aware instrument gating
-6. add a test runner and first Block-2 tests
+1. promote the Gate into a real operator-facing tactical brake rather than a doctrine-only panel
+2. add a visible rules register with approval, rejection, and quarantine states
+3. decide which broader WaveRider modules should remain frontend-visible doctrine versus honest local computation
+4. add simulation / PreCog / evolution surfaces only when they can be represented without pretending a hidden backend exists
+5. expand tests beyond doctrine coverage into harvest, container semantics, and instrument custody
