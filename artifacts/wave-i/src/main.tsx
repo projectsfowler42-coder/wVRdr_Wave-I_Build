@@ -14,6 +14,59 @@ if (!rootElement) {
 
 const root = createRoot(rootElement);
 
+function createBootProbe() {
+  const container = document.createElement("div");
+  container.id = "wavei-boot-probe";
+  container.setAttribute(
+    "style",
+    [
+      "position:fixed",
+      "top:12px",
+      "left:12px",
+      "right:12px",
+      "z-index:2147483647",
+      "background:rgba(15,23,42,0.96)",
+      "color:#e5f0ff",
+      "border:1px solid rgba(125,211,252,0.45)",
+      "border-radius:14px",
+      "padding:12px 14px",
+      "font-family:ui-monospace, SFMono-Regular, Menlo, monospace",
+      "box-shadow:0 12px 40px rgba(0,0,0,0.45)",
+      "max-width:860px",
+      "margin:0 auto",
+      "backdrop-filter:blur(10px)",
+      "white-space:pre-wrap",
+    ].join(";"),
+  );
+
+  container.innerHTML = [
+    '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#7dd3fc;">Wave-I boot probe</div>',
+    '<div id="wavei-boot-probe-stage" style="margin-top:8px;font-size:14px;font-weight:700;">initializing…</div>',
+    '<div id="wavei-boot-probe-detail" style="margin-top:6px;font-size:12px;color:#cbd5e1;">The UI should not be able to fail silently after this patch.</div>',
+  ].join("");
+
+  document.body.appendChild(container);
+
+  const stage = container.querySelector("#wavei-boot-probe-stage") as HTMLDivElement | null;
+  const detail = container.querySelector("#wavei-boot-probe-detail") as HTMLDivElement | null;
+
+  return {
+    set(stageText: string, detailText?: string) {
+      if (stage) stage.textContent = stageText;
+      if (detail && detailText) detail.textContent = detailText;
+    },
+    fail(stageText: string, detailText?: string) {
+      container.style.borderColor = "rgba(248,113,113,0.65)";
+      container.style.background = "rgba(37,10,10,0.96)";
+      if (stage) stage.textContent = stageText;
+      if (detail && detailText) detail.textContent = detailText;
+    },
+  };
+}
+
+const probe = createBootProbe();
+probe.set("root located", "Wave-I found the mount target and is starting boot.");
+
 function BootFailureSurface() {
   const errors = snapshotRuntimeErrors();
   const latest = errors[0] ?? null;
@@ -48,40 +101,36 @@ function BootFailureSurface() {
             ) : null}
           </div>
         ) : null}
-
-        {errors.length > 1 ? (
-          <div className="mt-4 rounded-lg border border-border bg-background/50 p-4">
-            <div className="text-xs font-semibold text-foreground">Catalog</div>
-            <div className="mt-2 grid gap-2">
-              {errors.slice(1, 5).map((error) => (
-                <div key={error.id} className="rounded-md border border-border/60 bg-card/70 p-3">
-                  <div className="text-[10px] text-muted-foreground">{error.kind} · {error.source}</div>
-                  <div className="mt-1 text-xs text-foreground">{error.message}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );
 }
 
 installGlobalErrorHandlers();
+probe.set("global handlers installed", "Window errors and unhandled promise rejections are now being cataloged.");
 
 async function boot() {
   try {
+    probe.set("importing App module", "If the screen stays blank after this, the probe should still remain visible.");
     const { default: App } = await import("./App");
+    probe.set("App imported", "Rendering the Wave-I shell now.");
     root.render(<App />);
+    window.setTimeout(() => {
+      probe.set(
+        "render committed",
+        "If only the boot probe is visible, the app mounted but the UI is failing later in the render path.",
+      );
+    }, 150);
   } catch (error) {
     const resolved = error instanceof Error ? error : new Error(String(error));
-    recordRuntimeError({
+    const record = recordRuntimeError({
       kind: "boot",
       message: resolved.message,
       detail: "Wave-I failed during boot or module import before the shell could mount.",
       source: "src/main.tsx",
       stack: resolved.stack ?? null,
     });
+    probe.fail("boot failed", `${record.message} | ${record.source}`);
     root.render(<BootFailureSurface />);
   }
 }
