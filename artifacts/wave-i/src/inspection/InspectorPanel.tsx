@@ -4,6 +4,7 @@ import { listWaveIInstruments } from "@/lib/loadInstruments";
 import ModuleInspector from "@/inspection/ModuleInspector";
 import HealthDashboard from "@/inspection/HealthDashboard";
 import ReleaseInspector from "@/inspection/ReleaseInspector";
+import ErrorLogPanel from "@/inspection/ErrorLogPanel";
 
 export default function InspectorPanel() {
   const modules = listRegisteredModules();
@@ -22,7 +23,7 @@ export default function InspectorPanel() {
             Ghost Chassis Inspection Surface
           </div>
           <div className="mt-1 text-sm font-semibold text-foreground">
-            Module, health, release, and instrument-custody visibility
+            Module, health, release, instrument-custody, and runtime-fault visibility
           </div>
         </div>
         <div className="text-xs text-muted-foreground">
@@ -32,10 +33,11 @@ export default function InspectorPanel() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <ModuleInspector modules={modules} />
         <HealthDashboard health={health} />
         <ReleaseInspector />
+        <ErrorLogPanel />
       </div>
     </div>
   );
