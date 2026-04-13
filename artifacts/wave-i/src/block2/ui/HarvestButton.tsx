@@ -8,7 +8,7 @@ interface HarvestButtonProps {
 }
 
 export function HarvestButton({ state, onClick, disabled }: HarvestButtonProps) {
-  const label = state === "running" ? "[Harvesting…]" : "[Harvest Data]";
+  const label = state === "running" ? "[Refreshing…]" : "[Data Refresh]";
 
   return (
     <button

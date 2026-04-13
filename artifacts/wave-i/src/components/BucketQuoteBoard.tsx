@@ -20,9 +20,8 @@ function ContainerPanel({ container, defaultTicker }: ContainerPanelProps) {
   const { data: quote, isLoading, isError } = useQuery<Quote>({
     queryKey: ["quote", selected],
     queryFn: () => fetchQuote(selected),
-    refetchInterval: 90_000,
-    staleTime: 60_000,
-    retry: 2,
+    staleTime: Infinity,
+    retry: 0,
     enabled: Boolean(selected),
   });
 

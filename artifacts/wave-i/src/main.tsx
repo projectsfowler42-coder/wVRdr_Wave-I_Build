@@ -21,34 +21,54 @@ function createBootProbe() {
     "style",
     [
       "position:fixed",
-      "top:12px",
-      "left:12px",
       "right:12px",
+      "bottom:12px",
       "z-index:2147483647",
       "background:rgba(15,23,42,0.96)",
       "color:#e5f0ff",
       "border:1px solid rgba(125,211,252,0.45)",
       "border-radius:14px",
-      "padding:12px 14px",
+      "padding:10px 12px",
       "font-family:ui-monospace, SFMono-Regular, Menlo, monospace",
       "box-shadow:0 12px 40px rgba(0,0,0,0.45)",
-      "max-width:860px",
-      "margin:0 auto",
+      "width:min(92vw,420px)",
       "backdrop-filter:blur(10px)",
-      "white-space:pre-wrap",
     ].join(";"),
   );
 
   container.innerHTML = [
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">',
     '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#7dd3fc;">Wave-I boot probe</div>',
-    '<div id="wavei-boot-probe-stage" style="margin-top:8px;font-size:14px;font-weight:700;">initializing…</div>',
+    '<button id="wavei-boot-probe-toggle" type="button" style="border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.65);color:#cbd5e1;border-radius:999px;padding:4px 8px;font-size:10px;cursor:pointer;">minimize</button>',
+    "</div>",
+    '<div id="wavei-boot-probe-body" style="margin-top:8px;white-space:pre-wrap;">',
+    '<div id="wavei-boot-probe-stage" style="font-size:14px;font-weight:700;">initializing…</div>',
     '<div id="wavei-boot-probe-detail" style="margin-top:6px;font-size:12px;color:#cbd5e1;">The UI should not be able to fail silently after this patch.</div>',
+    "</div>",
   ].join("");
 
   document.body.appendChild(container);
 
   const stage = container.querySelector("#wavei-boot-probe-stage") as HTMLDivElement | null;
   const detail = container.querySelector("#wavei-boot-probe-detail") as HTMLDivElement | null;
+  const body = container.querySelector("#wavei-boot-probe-body") as HTMLDivElement | null;
+  const toggle = container.querySelector("#wavei-boot-probe-toggle") as HTMLButtonElement | null;
+
+  let collapsed = false;
+
+  const syncCollapsed = () => {
+    if (body) body.style.display = collapsed ? "none" : "block";
+    if (toggle) toggle.textContent = collapsed ? "expand" : "minimize";
+    container.style.width = collapsed ? "auto" : "min(92vw,420px)";
+    container.style.padding = collapsed ? "8px 10px" : "10px 12px";
+  };
+
+  toggle?.addEventListener("click", () => {
+    collapsed = !collapsed;
+    syncCollapsed();
+  });
+
+  syncCollapsed();
 
   return {
     set(stageText: string, detailText?: string) {
@@ -58,8 +78,18 @@ function createBootProbe() {
     fail(stageText: string, detailText?: string) {
       container.style.borderColor = "rgba(248,113,113,0.65)";
       container.style.background = "rgba(37,10,10,0.96)";
+      collapsed = false;
+      syncCollapsed();
       if (stage) stage.textContent = stageText;
       if (detail && detailText) detail.textContent = detailText;
+    },
+    collapse() {
+      collapsed = true;
+      syncCollapsed();
+    },
+    expand() {
+      collapsed = false;
+      syncCollapsed();
     },
   };
 }
@@ -118,8 +148,9 @@ async function boot() {
     window.setTimeout(() => {
       probe.set(
         "render committed",
-        "If only the boot probe is visible, the app mounted but the UI is failing later in the render path.",
+        "Tap expand if you need diagnostics. The app mounted and the probe is now minimized by default.",
       );
+      probe.collapse();
     }, 150);
   } catch (error) {
     const resolved = error instanceof Error ? error : new Error(String(error));

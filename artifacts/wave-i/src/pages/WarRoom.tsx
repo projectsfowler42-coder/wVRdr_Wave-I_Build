@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
@@ -17,36 +18,53 @@ interface LocalHarvestReport {
 }
 
 export default function WarRoom() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("warroom");
   const [holdings, setHoldings] = useState<Holding[]>(() => loadHoldings());
   const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
 
   const harvestSummary = harvestReport?.finishedAt
-    ? `updated ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed}`
+    ? `refreshed ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed}`
     : null;
 
   async function handleHarvest() {
     if (harvestState === "running") return;
     setHarvestState("running");
 
-    const sourceRows = [
-      ...listWaveIInstruments().map(
-        (instrument) => `${instrument.canonicalWaveIBucket}::${instrument.ticker}`,
-      ),
-      ...holdings.map((holding) => `${holding.container}::${holding.ticker}`),
-    ];
+    try {
+      const sourceRows = [
+        ...listWaveIInstruments().map(
+          (instrument) => `${instrument.canonicalWaveIBucket}::${instrument.ticker}`,
+        ),
+        ...holdings.map((holding) => `${holding.container}::${holding.ticker}`),
+      ];
 
-    const unique = new Set(sourceRows);
-    const report: LocalHarvestReport = {
-      updated: unique.size,
-      skippedDuplicate: sourceRows.length - unique.size,
-      failed: 0,
-      finishedAt: new Date().toISOString(),
-    };
+      const unique = new Set(sourceRows);
 
-    setHarvestReport(report);
-    setHarvestState("completed");
+      await queryClient.refetchQueries({
+        queryKey: ["quote"],
+        type: "active",
+      });
+
+      const report: LocalHarvestReport = {
+        updated: unique.size,
+        skippedDuplicate: sourceRows.length - unique.size,
+        failed: 0,
+        finishedAt: new Date().toISOString(),
+      };
+
+      setHarvestReport(report);
+      setHarvestState("completed");
+    } catch {
+      setHarvestReport({
+        updated: 0,
+        skippedDuplicate: 0,
+        failed: 1,
+        finishedAt: new Date().toISOString(),
+      });
+      setHarvestState("completed");
+    }
   }
 
   return (
@@ -72,6 +90,9 @@ export default function WarRoom() {
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
               Active runtime scope: |M| Mint · |W| White · [B] Blue · [G] Green
+            </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              Quote refresh is now manual. Use [Data Refresh] only when you want a single fetch pass.
             </div>
           </section>
 
