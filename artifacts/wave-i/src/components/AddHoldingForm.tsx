@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getBucketScopedInstruments } from "@/lib/loadInstruments";
+import { getBucketScopedInstruments, getInstrumentRecord } from "@/lib/loadInstruments";
 import {
   addHolding,
   placementFromContainer,
@@ -22,10 +22,6 @@ const EMPTY_FORM = {
   shares: "",
   entryDate: "",
   entryPrice: "",
-  dividendCollected: "",
-  latestDipDate: "",
-  dripAmount: "",
-  expectedIncome: "",
   notes: "",
 };
 
@@ -68,7 +64,7 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
     const entryPrice = parseFloat(form.entryPrice);
 
     if (!form.ticker) {
-      setError("Ticker is required.");
+      setError("Instrument is required.");
       return;
     }
     if (Number.isNaN(shares) || shares <= 0) {
@@ -90,10 +86,10 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
       shares,
       entryDate: form.entryDate,
       entryPrice,
-      dividendCollected: parseFloat(form.dividendCollected) || 0,
-      latestDipDate: form.latestDipDate,
-      dripAmount: parseFloat(form.dripAmount) || 0,
-      expectedIncome: parseFloat(form.expectedIncome) || 0,
+      dividendCollected: 0,
+      latestDipDate: "",
+      dripAmount: 0,
+      expectedIncome: 0,
       notes: form.notes,
     };
 
@@ -103,6 +99,7 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
   }
 
   const scopedInstruments = getBucketScopedInstruments(form.container);
+  const selectedInstrument = getInstrumentRecord(form.ticker);
 
   if (!open) {
     return (
@@ -119,7 +116,12 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-foreground">Add Holding</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Add Holding</h3>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            Enter only the core facts you actually know. Derived values populate later from manual refresh and local calculations.
+          </div>
+        </div>
         <button
           onClick={() => {
             setOpen(false);
@@ -132,8 +134,8 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
         </button>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Container">
             <select
               value={form.container}
@@ -174,30 +176,20 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
             <input type="date" value={form.entryDate} onChange={(event) => set("entryDate", event.target.value)} className={inputCls} />
           </Field>
 
-          <Field label="Dividend collected $">
-            <input type="number" value={form.dividendCollected} onChange={(event) => set("dividendCollected", event.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
+          <Field label="Notes">
+            <input type="text" value={form.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Optional notes…" className={inputCls} />
           </Field>
-
-          <Field label="Latest dip date">
-            <input type="date" value={form.latestDipDate} onChange={(event) => set("latestDipDate", event.target.value)} className={inputCls} />
-          </Field>
-
-          <Field label="DRiP amount $">
-            <input type="number" value={form.dripAmount} onChange={(event) => set("dripAmount", event.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
-          </Field>
-
-          <Field label="Expected income/yr $">
-            <input type="number" value={form.expectedIncome} onChange={(event) => set("expectedIncome", event.target.value)} placeholder="0.00" step="0.01" min="0" className={inputCls} />
-          </Field>
-
-          <div className="col-span-2 md:col-span-3">
-            <Field label="Notes">
-              <input type="text" value={form.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Optional notes…" className={inputCls} />
-            </Field>
-          </div>
         </div>
 
-        {error && <div className="text-xs text-destructive mb-3">{error}</div>}
+        {selectedInstrument ? (
+          <div className="rounded-lg border border-border/70 bg-background/50 p-3 text-xs text-muted-foreground">
+            <div className="font-medium text-foreground">Auto-populated later</div>
+            <div className="mt-1">Expected income, DRiP amount, last dip date, and quote-linked metrics should come from refreshable data and local calculations, not manual entry.</div>
+            <div className="mt-2">Current selection: {selectedInstrument.ticker} · {selectedInstrument.subtype} · {selectedInstrument.payoutFrequency ?? "varies"}</div>
+          </div>
+        ) : null}
+
+        {error && <div className="text-xs text-destructive">{error}</div>}
 
         <div className="flex items-center gap-2">
           <button type="submit" className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">

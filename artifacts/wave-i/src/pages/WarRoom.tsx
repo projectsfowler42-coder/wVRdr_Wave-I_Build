@@ -23,9 +23,12 @@ export default function WarRoom() {
   const [holdings, setHoldings] = useState<Holding[]>(() => loadHoldings());
   const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const harvestSummary = harvestReport?.finishedAt
-    ? `refreshed ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed}`
+    ? harvestReport.failed > 0
+      ? `refresh finished with ${harvestReport.failed} failure`
+      : `refresh checked ${harvestReport.updated} tracked symbols`
     : null;
 
   async function handleHarvest() {
@@ -34,34 +37,30 @@ export default function WarRoom() {
 
     try {
       const sourceRows = [
-        ...listWaveIInstruments().map(
-          (instrument) => `${instrument.canonicalWaveIBucket}::${instrument.ticker}`,
-        ),
+        ...listWaveIInstruments().map((instrument) => `${instrument.canonicalWaveIBucket}::${instrument.ticker}`),
         ...holdings.map((holding) => `${holding.container}::${holding.ticker}`),
       ];
 
       const unique = new Set(sourceRows);
+      await queryClient.refetchQueries({ queryKey: ["quote"], type: "active" });
 
-      await queryClient.refetchQueries({
-        queryKey: ["quote"],
-        type: "active",
-      });
-
-      const report: LocalHarvestReport = {
+      const now = Date.now();
+      setLastUpdated(now);
+      setHarvestReport({
         updated: unique.size,
         skippedDuplicate: sourceRows.length - unique.size,
         failed: 0,
-        finishedAt: new Date().toISOString(),
-      };
-
-      setHarvestReport(report);
+        finishedAt: new Date(now).toISOString(),
+      });
       setHarvestState("completed");
     } catch {
+      const now = Date.now();
+      setLastUpdated(now);
       setHarvestReport({
         updated: 0,
         skippedDuplicate: 0,
         failed: 1,
-        finishedAt: new Date().toISOString(),
+        finishedAt: new Date(now).toISOString(),
       });
       setHarvestState("completed");
     }
@@ -75,7 +74,7 @@ export default function WarRoom() {
         onHarvest={handleHarvest}
         harvestState={harvestState}
         harvestSummary={harvestSummary}
-        lastUpdated={null}
+        lastUpdated={lastUpdated}
         holdingsCount={holdings.length}
       />
 
@@ -92,7 +91,7 @@ export default function WarRoom() {
               Active runtime scope: |M| Mint · |W| White · [B] Blue · [G] Green
             </div>
             <div className="mt-3 text-xs text-muted-foreground">
-              Quote refresh is now manual. Use [Data Refresh] only when you want a single fetch pass.
+              Quote refresh is manual only. One press equals one refresh pass. No background polling.
             </div>
           </section>
 

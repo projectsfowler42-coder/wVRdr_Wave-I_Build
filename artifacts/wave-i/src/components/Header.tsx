@@ -67,8 +67,16 @@ export default function Header({ tab, onTabChange, onHarvest, harvestState, harv
       </nav>
 
       <div className="flex items-center gap-3 flex-wrap justify-end">
-        {ts && <span className="text-[10px] text-muted-foreground num">Updated {ts}</span>}
-        {harvestSummary && <span className="text-[10px] text-muted-foreground num">{harvestSummary}</span>}
+        <div className="flex flex-col items-end gap-1 text-right">
+          <span className="text-[10px] text-muted-foreground num">
+            {ts ? `Last refresh ${ts}` : "No manual refresh yet"}
+          </span>
+          <span className="text-[10px] text-muted-foreground num">
+            {harvestState === "running"
+              ? "Refresh pass in progress…"
+              : harvestSummary ?? "One click = one fetch pass"}
+          </span>
+        </div>
         <HarvestButton state={harvestState} onClick={onHarvest} />
       </div>
     </header>
