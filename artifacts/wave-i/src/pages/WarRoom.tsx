@@ -1,21 +1,11 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchQuote, type Quote } from "@/lib/market";
+import { useState } from "react";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
-import { getBucketInstruments } from "@/lib/instruments";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
-import AuditPanels from "@/block2/ui/AuditPanels";
-import MarketTape from "@/components/MarketTape";
 import BucketQuoteBoard from "@/components/BucketQuoteBoard";
-import MovementStats from "@/components/MovementStats";
-import Calculators from "@/components/Calculators";
-import ResearchLinks from "@/components/ResearchLinks";
 import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
-import SeverityLadder from "@/block3/ui/SeverityLadder";
-import InspectorPanel from "@/inspection/InspectorPanel";
 
 type Tab = "warroom" | "portfolio";
 
@@ -32,51 +22,9 @@ export default function WarRoom() {
   const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
 
-  const blueTicker = useMemo(
-    () =>
-      holdings.find((holding) => holding.container === "BLUE")?.ticker ??
-      getBucketInstruments("BLUE")[0]?.ticker ??
-      "",
-    [holdings],
-  );
-
-  const greenTicker = useMemo(
-    () =>
-      holdings.find((holding) => holding.container === "GREEN")?.ticker ??
-      getBucketInstruments("GREEN")[0]?.ticker ??
-      "",
-    [holdings],
-  );
-
-  const { data: blueQuote, dataUpdatedAt: blueUpdated } = useQuery<Quote>({
-    queryKey: ["quote", blueTicker],
-    queryFn: () => fetchQuote(blueTicker),
-    refetchInterval: 90000,
-    staleTime: 60000,
-    retry: 2,
-    enabled: Boolean(blueTicker),
-  });
-
-  const { data: greenQuote, dataUpdatedAt: greenUpdated } = useQuery<Quote>({
-    queryKey: ["quote", greenTicker],
-    queryFn: () => fetchQuote(greenTicker),
-    refetchInterval: 90000,
-    staleTime: 60000,
-    retry: 2,
-    enabled: Boolean(greenTicker),
-  });
-
-  const lastUpdated = Math.max(blueUpdated ?? 0, greenUpdated ?? 0) || null;
-
-  const harvestSummary = useMemo(() => {
-    if (!harvestReport?.finishedAt) return null;
-    const ts = new Date(harvestReport.finishedAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    return `updated ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed} | ${ts}`;
-  }, [harvestReport]);
+  const harvestSummary = harvestReport?.finishedAt
+    ? `updated ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed}`
+    : null;
 
   async function handleHarvest() {
     if (harvestState === "running") return;
@@ -109,16 +57,22 @@ export default function WarRoom() {
         onHarvest={handleHarvest}
         harvestState={harvestState}
         harvestSummary={harvestSummary}
-        lastUpdated={lastUpdated}
+        lastUpdated={null}
         holdingsCount={holdings.length}
       />
 
-      <MarketTape />
-
       {tab === "warroom" && (
         <main className="flex-1 p-4 md:p-6 space-y-5 max-w-7xl mx-auto w-full">
-          <section>
-            <SeverityLadder />
+          <section className="rounded-lg border border-border bg-card p-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Wave-I core shell
+            </div>
+            <div className="mt-2 text-sm text-foreground">
+              Core runtime restored. Advanced panels are temporarily quarantined while the mounted render loop is isolated.
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Active runtime scope: |M| Mint · |W| White · [B] Blue · [G] Green
+            </div>
           </section>
 
           <section>
@@ -126,39 +80,8 @@ export default function WarRoom() {
             <BucketQuoteBoard />
           </section>
 
-          <section>
-            <MovementStats blueQuote={blueQuote} greenQuote={greenQuote} />
-          </section>
-
-          <section>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Calculators</h2>
-            <Calculators blueQuote={blueQuote} greenQuote={greenQuote} />
-          </section>
-
-          <section>
-            <ResearchLinks />
-          </section>
-
-          <section>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Truth / Audit</h2>
-            <AuditPanels
-              holdingsCount={holdings.length}
-              lastUpdated={lastUpdated}
-              harvestState={harvestState}
-              harvestSummary={harvestSummary}
-            />
-          </section>
-
-          <section>
-            <InspectorPanel />
-          </section>
-
           <footer className="py-4 text-center text-[10px] text-muted-foreground border-t border-border/40">
-            Wave-I | truth-first | active runtime scope |W| / |M| / [B] / [G] | frontend-only operator shell
-            <br />
-            <span className="opacity-60">
-              [Harvest Data] inventories tracked symbols locally from the canonical Wave-I database and reports updated and skipped counts without backend services.
-            </span>
+            Wave-I | core shell recovery mode | frontend-only operator surface
           </footer>
         </main>
       )}
