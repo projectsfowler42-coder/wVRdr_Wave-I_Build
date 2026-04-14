@@ -14,23 +14,31 @@ interface HeaderProps {
   holdingsCount: number;
 }
 
-export default function Header({ tab, onTabChange, onHarvest, harvestState, harvestSummary, lastUpdated, holdingsCount }: HeaderProps) {
+export default function Header({
+  tab,
+  onTabChange,
+  onHarvest,
+  harvestState,
+  harvestSummary,
+  lastUpdated,
+  holdingsCount,
+}: HeaderProps) {
   const ts = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
     : null;
 
   return (
-    <header className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/70 gap-3 flex-wrap">
+    <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/70 gap-3 flex-wrap">
       <div className="flex items-center gap-3">
         <div>
           <span className="text-sm font-bold tracking-tight text-foreground">Wave-I</span>
-          <span className="ml-2 text-xs text-muted-foreground">War Room</span>
+          <span className="ml-2 text-xs text-muted-foreground">Control Panel</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[B] Blue</span>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[G] Green</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|W| White</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|M| Mint</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[B] Blue</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[G] Green</span>
         </div>
       </div>
 
@@ -44,7 +52,7 @@ export default function Header({ tab, onTabChange, onHarvest, harvestState, harv
           }`}
         >
           <RadioTower size={12} />
-          War Room
+          Control
         </button>
         <button
           onClick={() => onTabChange("portfolio")}
