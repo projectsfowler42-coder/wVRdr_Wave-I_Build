@@ -24,7 +24,7 @@ function emptyContainerSummary() {
   return {
     positions: 0,
     costBasis: 0,
-    marketValue: 0,
+    marketValue: null as number | null,
     dividendCollected: 0,
     expectedAnnualIncome: 0,
   };
@@ -34,9 +34,9 @@ export function createEmptyCapitalSummary(): CapitalSummary {
   return {
     holdingsCount: 0,
     deployedCostBasis: 0,
-    currentMarketValue: 0,
-    unrealizedGL: 0,
-    unrealizedGLPct: 0,
+    currentMarketValue: null,
+    unrealizedGL: null,
+    unrealizedGLPct: null,
     dividendCollected: 0,
     expectedAnnualIncome: 0,
     dripBudget: 0,
@@ -79,9 +79,9 @@ export function buildCapitalSummary(
     bucket.costBasis += costBasis;
     bucket.dividendCollected += holding.dividendCollected;
     bucket.expectedAnnualIncome += holding.expectedIncome;
-    bucket.marketValue = (bucket.marketValue ?? 0) + (marketValue ?? 0);
 
     if (marketValue != null) {
+      bucket.marketValue = (bucket.marketValue ?? 0) + marketValue;
       summary.currentMarketValue = (summary.currentMarketValue ?? 0) + marketValue;
     }
   }
@@ -99,9 +99,7 @@ export function buildCapitalSummary(
 
   for (const container of ACTIVE_CONTAINERS) {
     const bucket = summary.byContainer[container];
-    if (bucket.marketValue === 0 && bucket.positions === 0) {
-      bucket.marketValue = null;
-    }
+    if (bucket.positions === 0) bucket.marketValue = null;
   }
 
   return summary;

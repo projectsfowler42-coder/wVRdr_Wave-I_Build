@@ -22,7 +22,15 @@ export default function CapitalSummary({ summary }: CapitalSummaryProps) {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Holdings" value={String(summary.holdingsCount)} detail="Tracked positions in local Wave-I custody" />
         <StatCard label="Cost basis" value={fmtDollar(summary.deployedCostBasis)} detail="Capital deployed into tracked positions" />
-        <StatCard label="Market value" value={fmtDollar(summary.currentMarketValue)} detail="Based on local quote snapshots when available" />
+        <StatCard
+          label="Market value"
+          value={fmtDollar(summary.currentMarketValue)}
+          detail={
+            summary.currentMarketValue != null
+              ? "Based on local quote snapshots when available"
+              : "Awaiting quote coverage µ cost basis remains authoritative"
+          }
+        />
         <StatCard
           label="Unrealized"
           value={fmtDollar(summary.unrealizedGL)}
@@ -57,7 +65,7 @@ export default function CapitalSummary({ summary }: CapitalSummaryProps) {
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Market value</span>
-                    <span className={`num ${signClass((row.marketValue ?? 0) - row.costBasis)}`}>{fmtDollar(row.marketValue)}</span>
+                    <span className={`num ${signClass(row.marketValue != null ? row.marketValue - row.costBasis : null)}`}>{fmtDollar(row.marketValue)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Income</span>
