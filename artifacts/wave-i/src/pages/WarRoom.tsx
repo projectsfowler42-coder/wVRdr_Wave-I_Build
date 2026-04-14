@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
+import { refreshQuotes } from "@/lib/market";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
 import BucketQuoteBoard from "@/components/BucketQuoteBoard";
 import Header from "@/components/Header";
@@ -26,30 +27,38 @@ export default function WarRoom() {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const harvestSummary = harvestReport?.finishedAt
-    ? harvestReport.failed > 0
-      ? `refresh finished with ${harvestReport.failed} failure`
-      : `refresh checked ${harvestReport.updated} tracked symbols`
+    ? `refreshed ${harvestReport.updated} | skipped ${harvestReport.skippedDuplicate} | failed ${harvestReport.failed}`
     : null;
 
   async function handleHarvest() {
     if (harvestState === "running") return;
     setHarvestState("running");
 
-    try {
-      const sourceRows = [
-        ...listWaveIInstruments().map((instrument) => `${instrument.canonicalWaveIBucket}::${instrument.ticker}`),
-        ...holdings.map((holding) => `${holding.container}::${holding.ticker}`),
-      ];
+    const sourceTickers = [
+      ...listWaveIInstruments().map((instrument) => instrument.ticker),
+      ...holdings.map((holding) => holding.ticker),
+    ]
+      .map((ticker) => ticker.trim().toUpperCase())
+      .filter(Boolean);
 
-      const unique = new Set(sourceRows);
-      await queryClient.refetchQueries({ queryKey: ["quote"], type: "active" });
+    const uniqueTickers = Array.from(new Set(sourceTickers));
+    const skippedDuplicate = sourceTickers.length - uniqueTickers.length;
+
+    try {
+      const refreshed = uniqueTickers.length > 0
+        ? await refreshQuotes(uniqueTickers)
+        : { quotes: {}, failed: [] as string[] };
+
+      Object.entries(refreshed.quotes).forEach(([symbol, quote]) => {
+        queryClient.setQueryData(["quote", symbol], quote);
+      });
 
       const now = Date.now();
       setLastUpdated(now);
       setHarvestReport({
-        updated: unique.size,
-        skippedDuplicate: sourceRows.length - unique.size,
-        failed: 0,
+        updated: Object.keys(refreshed.quotes).length,
+        skippedDuplicate,
+        failed: refreshed.failed.length,
         finishedAt: new Date(now).toISOString(),
       });
       setHarvestState("completed");
@@ -58,8 +67,8 @@ export default function WarRoom() {
       setLastUpdated(now);
       setHarvestReport({
         updated: 0,
-        skippedDuplicate: 0,
-        failed: 1,
+        skippedDuplicate,
+        failed: uniqueTickers.length || 1,
         finishedAt: new Date(now).toISOString(),
       });
       setHarvestState("completed");
