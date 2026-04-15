@@ -1,9 +1,4 @@
-export const TICKERS = {
-  BLUE: "ARCC",
-  GREEN: "AGNC",
-} as const;
-
-export type Ticker = (typeof TICKERS)[keyof typeof TICKERS];
+import { listWaveIInstruments } from "@/lib/loadInstruments";
 
 export interface Quote {
   symbol: string;
@@ -33,12 +28,22 @@ export interface TapeItem {
   changePct: number;
 }
 
+export interface QuoteRefreshStatus {
+  symbol: string;
+  status: "refreshed" | "reused-local" | "failed";
+  source: "stooq-direct" | "yahoo-direct" | "quarantined-proxy" | "local-cache" | "none";
+  reason: string | null;
+  timestamp: number;
+}
+
 export interface RefreshQuotesResult {
   quotes: Record<string, Quote>;
   failed: string[];
+  statuses: QuoteRefreshStatus[];
 }
 
 type StoredQuoteMap = Record<string, Partial<Quote>>;
+type StoredStatusMap = Record<string, QuoteRefreshStatus>;
 type YahooChartResult = {
   meta?: Record<string, unknown>;
   indicators?: {
@@ -46,10 +51,28 @@ type YahooChartResult = {
   };
 };
 
-const STORAGE_KEY = "wavei_market_snapshots_v1";
-const CURATED_SNAPSHOTS: StoredQuoteMap = {};
+const STORAGE_KEY = "wavei_market_snapshots_v3";
+const LEGACY_STORAGE_KEYS = ["wavei_market_snapshots_v2", "wavei_market_snapshots_v1"];
+const STATUS_KEY = "wavei_market_refresh_status_v2";
 const YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
-const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+const STOOQ_BASE = "https://stooq.com/q/l/";
+const QUARANTINED_PROXY_BASE = "https://api.allorigins.win/raw?url=";
+
+function safeStorageGet(key: string): string | null {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key: string, value: string): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(key, value);
+  } catch {
+    // Storage can fail in private mode or restricted environments.
+  }
+}
 
 function normalizeSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
@@ -78,19 +101,45 @@ function emptyQuote(symbol: string): Quote {
   };
 }
 
-function readStoredSnapshots(): StoredQuoteMap {
+function parseJson<T>(raw: string | null): T | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return JSON.parse(raw) as T;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function readStoredSnapshots(): StoredQuoteMap {
+  const current = parseJson<StoredQuoteMap>(safeStorageGet(STORAGE_KEY));
+  if (current) return current;
+  for (const key of LEGACY_STORAGE_KEYS) {
+    const legacy = parseJson<StoredQuoteMap>(safeStorageGet(key));
+    if (legacy) return legacy;
+  }
+  return {};
+}
+
+function readStoredStatuses(): StoredStatusMap {
+  return parseJson<StoredStatusMap>(safeStorageGet(STATUS_KEY)) ?? {};
+}
+
+function writeStoredStatuses(statuses: QuoteRefreshStatus[]): void {
+  const current = readStoredStatuses();
+  statuses.forEach((status) => {
+    current[normalizeSymbol(status.symbol)] = status;
+  });
+  safeStorageSet(STATUS_KEY, JSON.stringify(current));
 }
 
 function asNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function csvNumber(value: string | undefined): number | null {
+  if (!value || value === "N/D") return null;
+  const parsed = Number(value.replace(/,/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function firstFinite(values?: Array<number | null>): number | null {
@@ -149,35 +198,22 @@ function normalizeQuote(symbol: string, partial?: Partial<Quote> | null): Quote 
 function buildRemoteQuote(symbol: string, result: YahooChartResult): Partial<Quote> {
   const meta = result.meta ?? {};
   const series = result.indicators?.quote?.[0];
-
-  const price =
-    asNumber(meta.regularMarketPrice) ??
-    lastFinite(series?.close);
-
+  const price = asNumber(meta.regularMarketPrice) ?? lastFinite(series?.close);
   const previousClose =
     asNumber(meta.previousClose) ??
     asNumber(meta.regularMarketPreviousClose) ??
     asNumber(meta.chartPreviousClose);
-
   const change =
     asNumber(meta.regularMarketChange) ??
     (price != null && previousClose != null ? price - previousClose : null);
-
   const changePct =
     asNumber(meta.regularMarketChangePercent) ??
-    (change != null && previousClose != null && previousClose !== 0
-      ? (change / previousClose) * 100
-      : null);
-
-  const afterHoursPrice =
-    asNumber(meta.postMarketPrice) ??
-    asNumber(meta.preMarketPrice);
-
+    (change != null && previousClose != null && previousClose !== 0 ? (change / previousClose) * 100 : null);
+  const afterHoursPrice = asNumber(meta.postMarketPrice) ?? asNumber(meta.preMarketPrice);
   const remoteTimestamp =
     asNumber(meta.postMarketTime) ??
     asNumber(meta.preMarketTime) ??
     asNumber(meta.regularMarketTime);
-
   const timestamp =
     remoteTimestamp != null
       ? remoteTimestamp < 1_000_000_000_000
@@ -197,57 +233,104 @@ function buildRemoteQuote(symbol: string, result: YahooChartResult): Partial<Quo
     fiftyTwoWeekHigh: asNumber(meta.fiftyTwoWeekHigh),
     fiftyTwoWeekLow: asNumber(meta.fiftyTwoWeekLow),
     volume: asNumber(meta.regularMarketVolume) ?? lastFinite(series?.volume),
-    avgVolume:
-      asNumber(meta.averageDailyVolume10Day) ??
-      asNumber(meta.averageDailyVolume3Month),
+    avgVolume: asNumber(meta.averageDailyVolume10Day) ?? asNumber(meta.averageDailyVolume3Month),
     marketCap: asNumber(meta.marketCap),
     afterHoursPrice,
-    afterHoursChange:
-      asNumber(meta.postMarketChange) ??
-      asNumber(meta.preMarketChange),
-    afterHoursChangePct:
-      asNumber(meta.postMarketChangePercent) ??
-      asNumber(meta.preMarketChangePercent),
+    afterHoursChange: asNumber(meta.postMarketChange) ?? asNumber(meta.preMarketChange),
+    afterHoursChangePct: asNumber(meta.postMarketChangePercent) ?? asNumber(meta.preMarketChangePercent),
     isAfterHours: afterHoursPrice != null,
     timestamp,
   };
 }
 
-async function requestRemoteQuote(symbol: string): Promise<Partial<Quote>> {
-  const normalizedSymbol = normalizeSymbol(symbol);
-  const targetUrl =
-    `${YAHOO_CHART_BASE}${encodeURIComponent(normalizedSymbol)}` +
-    "?interval=1d&range=5d&includePrePost=true";
-  const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`, {
-    headers: { accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Quote refresh failed for ${normalizedSymbol} (${response.status})`);
+async function fetchText(url: string): Promise<string> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "application/json,text/plain,*/*" },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`http ${response.status}`);
+    return await response.text();
+  } finally {
+    window.clearTimeout(timer);
   }
+}
 
-  const payload = await response.json() as {
-    chart?: { result?: YahooChartResult[] };
-  };
+async function fetchTextViaQuarantinedProxy(url: string): Promise<string> {
+  return fetchText(`${QUARANTINED_PROXY_BASE}${encodeURIComponent(url)}`);
+}
+
+function parseYahooQuote(symbol: string, text: string): Partial<Quote> {
+  const payload = JSON.parse(text) as { chart?: { result?: YahooChartResult[] } };
   const result = payload.chart?.result?.[0];
-
-  if (!result) {
-    throw new Error(`Quote refresh returned no data for ${normalizedSymbol}`);
-  }
-
-  const quote = buildRemoteQuote(normalizedSymbol, result);
-  if (quote.price == null) {
-    throw new Error(`Quote refresh returned no price for ${normalizedSymbol}`);
-  }
-
+  if (!result) throw new Error("no yahoo result");
+  const quote = buildRemoteQuote(symbol, result);
+  if (quote.price == null) throw new Error("no yahoo price");
   return quote;
+}
+
+function parseStooqQuote(symbol: string, text: string): Partial<Quote> {
+  const normalized = text.replace(/\r/g, "");
+  const [headerLine, valueLine] = normalized.trim().split("\n");
+  if (!headerLine || !valueLine) throw new Error("no stooq csv");
+  const headers = headerLine.split(",");
+  const values = valueLine.split(",");
+  const row = Object.fromEntries(headers.map((header, index) => [header, values[index]])) as Record<string, string>;
+  const price = csvNumber(row.Close);
+  const open = csvNumber(row.Open);
+  const dayHigh = csvNumber(row.High);
+  const dayLow = csvNumber(row.Low);
+  const previousClose = open;
+  const change = price != null && previousClose != null ? price - previousClose : null;
+  const changePct = change != null && previousClose != null && previousClose !== 0 ? (change / previousClose) * 100 : null;
+  const volume = csvNumber(row.Volume);
+  if (price == null) throw new Error("no stooq price");
+  return {
+    symbol: normalizeSymbol(symbol),
+    price,
+    previousClose,
+    change,
+    changePct,
+    open,
+    dayHigh,
+    dayLow,
+    volume,
+    avgVolume: null,
+    marketCap: null,
+    afterHoursPrice: null,
+    afterHoursChange: null,
+    afterHoursChangePct: null,
+    isAfterHours: false,
+    timestamp: Date.now(),
+  };
+}
+
+async function requestStooqDirect(symbol: string): Promise<Partial<Quote>> {
+  const targetUrl = `${STOOQ_BASE}?s=${encodeURIComponent(normalizeSymbol(symbol).toLowerCase())}&f=sd2t2ohlcvn&e=csv`;
+  return parseStooqQuote(symbol, await fetchText(targetUrl));
+}
+
+async function requestYahooDirect(symbol: string): Promise<Partial<Quote>> {
+  const targetUrl = `${YAHOO_CHART_BASE}${encodeURIComponent(normalizeSymbol(symbol))}?interval=1d&range=5d&includePrePost=true`;
+  return parseYahooQuote(symbol, await fetchText(targetUrl));
+}
+
+async function requestStooqViaQuarantinedProxy(symbol: string): Promise<Partial<Quote>> {
+  const targetUrl = `${STOOQ_BASE}?s=${encodeURIComponent(normalizeSymbol(symbol).toLowerCase())}&f=sd2t2ohlcvn&e=csv`;
+  return parseStooqQuote(symbol, await fetchTextViaQuarantinedProxy(targetUrl));
+}
+
+async function requestYahooViaQuarantinedProxy(symbol: string): Promise<Partial<Quote>> {
+  const targetUrl = `${YAHOO_CHART_BASE}${encodeURIComponent(normalizeSymbol(symbol))}?interval=1d&range=5d&includePrePost=true`;
+  return parseYahooQuote(symbol, await fetchTextViaQuarantinedProxy(targetUrl));
 }
 
 export function loadLocalQuote(symbol: string): Quote {
   const normalizedSymbol = normalizeSymbol(symbol);
   const stored = readStoredSnapshots()[normalizedSymbol];
-  const curated = CURATED_SNAPSHOTS[normalizedSymbol];
-  return normalizeQuote(normalizedSymbol, stored ?? curated ?? null);
+  return normalizeQuote(normalizedSymbol, stored ?? null);
 }
 
 export function saveLocalQuote(symbol: string, partial: Partial<Quote>): Quote {
@@ -260,61 +343,116 @@ export function saveLocalQuote(symbol: string, partial: Partial<Quote>): Quote {
     timestamp: typeof partial.timestamp === "number" ? partial.timestamp : Date.now(),
   });
   current[normalizedSymbol] = next;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  safeStorageSet(STORAGE_KEY, JSON.stringify(current));
   return next;
+}
+
+export function loadRefreshStatus(symbol: string): QuoteRefreshStatus | null {
+  return readStoredStatuses()[normalizeSymbol(symbol)] ?? null;
+}
+
+export function listRefreshStatuses(): QuoteRefreshStatus[] {
+  return Object.values(readStoredStatuses()).sort((left, right) => right.timestamp - left.timestamp);
 }
 
 export async function fetchQuote(symbol: string): Promise<Quote> {
   return loadLocalQuote(symbol);
 }
 
-export async function refreshQuote(symbol: string): Promise<Quote> {
-  const normalizedSymbol = normalizeSymbol(symbol);
-  const remoteQuote = await requestRemoteQuote(normalizedSymbol);
-  return saveLocalQuote(normalizedSymbol, remoteQuote);
-}
+export async function fetchQuotes(symbols?: string[]): Promise<Record<string, Quote>> {
+  const source: string[] = symbols?.length
+    ? symbols
+    : listWaveIInstruments().filter((instrument) => instrument.activeWaveIScope).map((instrument) => instrument.ticker);
 
-export async function refreshQuotes(symbols: string[]): Promise<RefreshQuotesResult> {
-  const uniqueSymbols = Array.from(new Set(symbols.map(normalizeSymbol).filter(Boolean)));
-  const settled = await Promise.allSettled(uniqueSymbols.map((symbol) => refreshQuote(symbol)));
-
-  const quotes: Record<string, Quote> = {};
-  const failed: string[] = [];
-
-  settled.forEach((result, index) => {
-    const symbol = uniqueSymbols[index];
-    if (!symbol) return;
-
-    if (result.status === "fulfilled") {
-      quotes[symbol] = result.value;
-      return;
-    }
-
-    failed.push(symbol);
-  });
-
-  return { quotes, failed };
-}
-
-export async function fetchQuotes(): Promise<Record<string, Quote>> {
-  const symbols = Object.values(TICKERS);
+  const unique = [...new Set(source.map(normalizeSymbol))];
   const out: Record<string, Quote> = {};
-  symbols.forEach((symbol) => {
+  unique.forEach((symbol) => {
     out[symbol] = loadLocalQuote(symbol);
   });
   return out;
 }
 
-export const TAPE_SYMBOLS = [
-  "SPY", "QQQ", "IWM", "TLT", "HYG", "XLF",
-  "ARCC", "AGNC",
-  "BX", "KKR", "ARES", "FSK", "MAIN", "ORCC",
-  "NLY", "RITM", "TWO",
-];
+async function refreshOne(symbol: string): Promise<{ quote: Quote; status: QuoteRefreshStatus }> {
+  const normalizedSymbol = normalizeSymbol(symbol);
+  const local = loadLocalQuote(normalizedSymbol);
+  const errors: string[] = [];
+
+  const attempts: Array<() => Promise<{ source: QuoteRefreshStatus["source"]; quote: Partial<Quote>; note?: string | null }>> = [
+    async () => ({ source: "stooq-direct", quote: await requestStooqDirect(normalizedSymbol), note: null }),
+    async () => ({ source: "yahoo-direct", quote: await requestYahooDirect(normalizedSymbol), note: null }),
+    async () => ({ source: "quarantined-proxy", quote: await requestStooqViaQuarantinedProxy(normalizedSymbol), note: "direct transports failed; used quarantined proxy" }),
+    async () => ({ source: "quarantined-proxy", quote: await requestYahooViaQuarantinedProxy(normalizedSymbol), note: "direct transports failed; used quarantined proxy" }),
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const result = await attempt();
+      const saved = saveLocalQuote(normalizedSymbol, result.quote);
+      return {
+        quote: saved,
+        status: {
+          symbol: normalizedSymbol,
+          status: "refreshed",
+          source: result.source,
+          reason: result.note ?? null,
+          timestamp: Date.now(),
+        },
+      };
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  if (local.price != null) {
+    return {
+      quote: local,
+      status: {
+        symbol: normalizedSymbol,
+        status: "reused-local",
+        source: "local-cache",
+        reason: errors.join(" | ") || "remote refresh failed; reusing local snapshot",
+        timestamp: Date.now(),
+      },
+    };
+  }
+
+  return {
+    quote: local,
+    status: {
+      symbol: normalizedSymbol,
+      status: "failed",
+      source: "none",
+      reason: errors.join(" | ") || "all refresh transports failed",
+      timestamp: Date.now(),
+    },
+  };
+}
+
+export async function refreshQuotes(symbols?: string[]): Promise<RefreshQuotesResult> {
+  const source: string[] = symbols?.length
+    ? symbols
+    : listWaveIInstruments().filter((instrument) => instrument.activeWaveIScope).map((instrument) => instrument.ticker);
+
+  const unique = [...new Set(source.map(normalizeSymbol))];
+  const quotes: Record<string, Quote> = {};
+  const statuses: QuoteRefreshStatus[] = [];
+  const failed: string[] = [];
+
+  for (const symbol of unique) {
+    const result = await refreshOne(symbol);
+    quotes[symbol] = result.quote;
+    statuses.push(result.status);
+    if (result.status.status === "failed") failed.push(symbol);
+  }
+
+  writeStoredStatuses(statuses);
+  return { quotes, failed, statuses };
+}
+
+export const TAPE_SYMBOLS = ["SPY", "QQQ", "IWM", "TLT", "HYG", "BKLN", "SGOV", "USFR", "JEPI", "O", "VICI"];
 
 export async function fetchTape(): Promise<TapeItem[]> {
-  return TAPE_SYMBOLS
-    .map((symbol) => loadLocalQuote(symbol))
+  return TAPE_SYMBOLS.map((symbol) => loadLocalQuote(symbol))
     .filter((quote) => quote.price != null)
     .map((quote) => ({
       symbol: quote.symbol,
