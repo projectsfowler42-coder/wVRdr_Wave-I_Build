@@ -1,0 +1,16 @@
+Do not continue Block work until the repo docs, data model, and UI language are corrected to the foundation split.
+
+Buckets:
+Blue and Green.
+
+Wallets:
+White and Mint.
+
+The repo must stop treating the narrowed BDC and mREIT framing as canonical.
+
+The next required work after this note is:
+1. replace legacy scope docs
+2. replace legacy current state docs
+3. replace legacy next steps docs
+4. add wallet fields to the model
+5. add wallet surfaces to the app

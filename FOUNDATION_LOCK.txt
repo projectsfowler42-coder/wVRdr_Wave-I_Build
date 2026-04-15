@@ -1,0 +1,1 @@
+Wave-I foundation lock: B and G are buckets. W and M are wallets. No further work should continue until scope, docs, and model reflect that split.
