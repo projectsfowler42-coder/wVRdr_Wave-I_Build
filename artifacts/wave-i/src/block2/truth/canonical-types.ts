@@ -66,6 +66,14 @@ export interface TruthValue<T = unknown> {
   version: number;
 }
 
+export interface TruthFieldProvenance {
+  fieldName: string;
+  sourceLabel: SourceLabel;
+  truthClass: TruthClass;
+  asOf: string;
+  inputs: string[];
+}
+
 export interface InstrumentRecord {
   ticker: string;
   name: string;

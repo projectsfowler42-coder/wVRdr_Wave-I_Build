@@ -10,7 +10,7 @@ export interface HarvestControllerInput<T extends HashableHarvestItem> {
 export async function runHarvestController<T extends HashableHarvestItem>(
   input: HarvestControllerInput<T>,
 ): Promise<{ status: "started" | "already-running"; report?: HarvestReport }> {
-  return await runSingleFlight("block2-harvest", async () => {
+  const result = await runSingleFlight("block2-harvest", async () => {
     const report = createHarvestReport();
     const { unique, skippedDuplicateCount } = dedupeHarvestItems(input.items);
     report.skippedDuplicate += skippedDuplicateCount;
@@ -27,4 +27,9 @@ export async function runHarvestController<T extends HashableHarvestItem>(
     report.finishedAt = new Date().toISOString();
     return report;
   });
+
+  return {
+    status: result.status,
+    report: result.value,
+  };
 }
