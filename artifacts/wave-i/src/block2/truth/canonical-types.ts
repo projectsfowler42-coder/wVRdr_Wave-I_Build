@@ -50,6 +50,14 @@ export interface CalcInputRef {
   version: number;
 }
 
+export interface TruthFieldProvenance {
+  fieldName: string;
+  sourceLabel: SourceLabel;
+  truthClass: TruthClass;
+  asOf: string;
+  inputs: string[];
+}
+
 export interface TruthValue<T = unknown> {
   id: string;
   field: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { getBucketScopedInstruments, getInstrumentRecord } from "@/lib/loadInstruments";
 import { addHolding, placementFromContainer, type Holding, type ActiveContainerClass } from "@/lib/portfolio";
 import { ACTIVE_CONTAINERS, containerLabel } from "@/lib/containerModel";
@@ -30,7 +30,7 @@ const EMPTY_FORM = {
   expectedOutcome: "",
 };
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <label className="mb-1 block text-[11px] text-muted-foreground">{label}</label>
@@ -58,7 +58,7 @@ export default function AddHoldingForm({ holdings, onHoldingsChange }: AddHoldin
     });
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
 
