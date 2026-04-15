@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { HarvestRunState, SourceLabel, VerificationState } from "@/block2/truth/canonical-types";
 
 interface AuditPanelsProps {
@@ -15,7 +16,7 @@ function StatusChip({ label }: { label: SourceLabel | VerificationState | string
   );
 }
 
-function AuditCard({ title, children }: { title: string; children: React.ReactNode }) {
+function AuditCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{title}</div>
