@@ -43,35 +43,35 @@
 }
 
 :root {
-  --background: 220 20% 6%;
-  --foreground: 210 20% 90%;
-  --border: 220 15% 16%;
-  --input: 220 15% 16%;
-  --ring: 210 80% 60%;
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
 
-  --card: 220 18% 9%;
-  --card-foreground: 210 20% 88%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
 
-  --popover: 220 18% 9%;
-  --popover-foreground: 210 20% 88%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
 
-  --primary: 210 80% 60%;
-  --primary-foreground: 220 20% 5%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
 
-  --secondary: 220 15% 14%;
-  --secondary-foreground: 210 20% 80%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
 
-  --muted: 220 15% 12%;
-  --muted-foreground: 210 15% 52%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
 
-  --accent: 220 15% 16%;
-  --accent-foreground: 210 20% 88%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
 
   --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive-foreground: 210 40% 98%;
 
-  --blue-signal: 210 90% 62%;
-  --green-signal: 142 70% 50%;
+  --blue-signal: 221 83% 53%;
+  --green-signal: 142 71% 45%;
 
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
@@ -97,14 +97,14 @@
 @layer utilities {
   .text-blue { color: hsl(var(--blue-signal)); }
   .text-green { color: hsl(var(--green-signal)); }
-  .text-up { color: hsl(142 70% 50%); }
-  .text-down { color: hsl(0 72% 58%); }
-  .text-flat { color: hsl(210 15% 52%); }
+  .text-up { color: hsl(142 70% 38%); }
+  .text-down { color: hsl(0 72% 50%); }
+  .text-flat { color: hsl(215 16% 47%); }
 
-  .bg-blue-dim { background-color: hsl(210 90% 62% / 0.08); }
-  .bg-green-dim { background-color: hsl(142 70% 50% / 0.08); }
-  .border-blue { border-color: hsl(210 90% 62% / 0.35); }
-  .border-green { border-color: hsl(142 70% 50% / 0.35); }
+  .bg-blue-dim { background-color: hsl(221 83% 53% / 0.08); }
+  .bg-green-dim { background-color: hsl(142 71% 45% / 0.08); }
+  .border-blue { border-color: hsl(221 83% 53% / 0.35); }
+  .border-green { border-color: hsl(142 71% 45% / 0.35); }
 
   .num {
     font-family: var(--app-font-mono);
