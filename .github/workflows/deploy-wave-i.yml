@@ -39,10 +39,19 @@ jobs:
       - name: Install
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build Wave-I static app
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Test Wave-I
+        run: pnpm run test:wave-i
+
+      - name: Build Wave-I static app and Ghost Image
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-        run: pnpm --filter @workspace/wave-i run build
+        run: pnpm --filter @workspace/wave-i run build:ghost
+
+      - name: Validate release bundle
+        run: pnpm run release:validate
 
       - name: Prepare Pages assets
         run: node scripts/prepare-pages.mjs
@@ -61,3 +70,8 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Smoke check deployed site
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node scripts/smoke-check-pages.mjs
