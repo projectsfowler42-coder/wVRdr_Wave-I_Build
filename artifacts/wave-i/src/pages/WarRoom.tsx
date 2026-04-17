@@ -3,14 +3,18 @@ import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
+import AuditPanels from "@/block2/ui/AuditPanels";
 import BucketQuoteBoard from "@/components/BucketQuoteBoard";
 import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
 import CapitalSummary from "@/components/CapitalSummary";
+import TreasuryPanel from "@/components/TreasuryPanel";
+import InspectorPanel from "@/inspection/InspectorPanel";
 import { buildCapitalSummary } from "@/lib/capital-summary";
 import { fetchQuote, refreshQuotes, type Quote, type QuoteRefreshStatus } from "@/lib/market";
 import { deriveHoldingContext } from "@/lib/decision-model";
+import { loadTreasuryState, saveTreasuryState } from "@/lib/treasury";
 import { fmtDollar, fmtPct, fmt } from "@/lib/utils";
 
 type Tab = "warroom" | "portfolio";
@@ -102,6 +106,7 @@ export default function WarRoom() {
   const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
   const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [treasury, setTreasury] = useState(() => loadTreasuryState());
 
   const quoteQueries = useQueries({
     queries: holdings.map((holding) => ({
@@ -171,10 +176,14 @@ export default function WarRoom() {
     }
   }
 
-  const totalCapital = capitalSummary.currentMarketValue ?? capitalSummary.deployedCostBasis;
+  const totalCapital = (capitalSummary.currentMarketValue ?? capitalSummary.deployedCostBasis) + treasury.cash + treasury.reserve;
   const deployed = capitalSummary.currentMarketValue ?? capitalSummary.deployedCostBasis;
   const refreshDelta = capitalSummary.unrealizedGL;
   const unresolvedCount = harvestReport?.statuses.filter((status) => status.status !== "refreshed").length ?? 0;
+
+  function handleTreasurySave(next: { cash: number; reserve: number }) {
+    setTreasury(saveTreasuryState(next));
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -191,15 +200,17 @@ export default function WarRoom() {
       {tab === "warroom" && (
         <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-4 md:px-6 md:py-6">
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <TelemetryCard label="Total capital" value={fmtDollar(totalCapital)} detail="Market value when covered · cost basis fallback otherwise" />
+            <TelemetryCard label="Total capital" value={fmtDollar(totalCapital)} detail="Deployed market value plus local treasury balances" />
             <TelemetryCard label="Deployed" value={fmtDollar(deployed)} detail="Best available marked position value" />
             <TelemetryCard label="Unrealized" value={fmtDollar(refreshDelta)} detail={fmtPct(capitalSummary.unrealizedGLPct)} />
-            <TelemetryCard label="Cash / reserve" value={fmtDollar(0)} detail="Treasury layer still manual" />
+            <TelemetryCard label="Cash / reserve" value={`${fmtDollar(treasury.cash)} / ${fmtDollar(treasury.reserve)}`} detail={treasury.updatedAt ? "Local treasury snapshot persisted" : "Treasury now editable and persistent"} />
             <TelemetryCard label="Refresh issues" value={String(unresolvedCount)} detail={unresolvedCount > 0 ? "See per-ticker exceptions below" : "No unresolved ticker failures in last pass"} />
             <TelemetryCard label="Last refresh" value={lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} detail={lastUpdated ? "Manual on-demand snapshot" : "No refresh pass yet"} />
           </section>
 
           <CapitalSummary summary={capitalSummary} />
+          <TreasuryPanel treasury={treasury} onSave={handleTreasurySave} />
+          <AuditPanels holdingsCount={holdings.length} lastUpdated={lastUpdated} harvestState={harvestState} harvestSummary={harvestSummary} />
 
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -218,6 +229,8 @@ export default function WarRoom() {
             </div>
             <BucketQuoteBoard />
           </section>
+
+          <InspectorPanel />
         </main>
       )}
 
