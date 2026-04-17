@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchQuote, type Quote } from "@/lib/market";
+import { fetchQuote, loadRefreshStatus, type Quote } from "@/lib/market";
 import { getBucketScopedInstruments, getInstrumentRecord } from "@/lib/loadInstruments";
 import type { ActiveContainerClass } from "@/lib/portfolio";
 import { ACTIVE_CONTAINERS, containerAccent, containerLabel } from "@/lib/containerModel";
@@ -17,6 +17,12 @@ function ContainerPanel({ container, defaultTicker }: ContainerPanelProps) {
   const [selected, setSelected] = useState(defaultTicker);
   const accent = containerAccent(container);
 
+  useEffect(() => {
+    if (!selected && defaultTicker) {
+      setSelected(defaultTicker);
+    }
+  }, [defaultTicker, selected]);
+
   const { data: quote, isLoading, isError } = useQuery<Quote>({
     queryKey: ["quote", selected],
     queryFn: () => fetchQuote(selected),
@@ -26,6 +32,28 @@ function ContainerPanel({ container, defaultTicker }: ContainerPanelProps) {
   });
 
   const instrument = getInstrumentRecord(selected);
+  const status = selected ? loadRefreshStatus(selected) : null;
+
+  if (instruments.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className={`flex items-center gap-2 rounded-lg border ${accent.border} ${accent.dim} px-3 py-2`}>
+          <span className={`text-[10px] font-bold uppercase tracking-widest w-16 shrink-0 ${accent.text}`}>
+            {containerLabel(container)}
+          </span>
+          <span className="text-xs text-muted-foreground">No scoped instruments loaded.</span>
+        </div>
+        <QuoteCard
+          container={container}
+          ticker=""
+          quote={undefined}
+          loading={false}
+          error={true}
+          status={null}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -56,11 +84,12 @@ function ContainerPanel({ container, defaultTicker }: ContainerPanelProps) {
       </div>
 
       <QuoteCard
-        label={containerLabel(container)}
+        container={container}
         ticker={selected}
         quote={quote}
         loading={isLoading}
         error={isError}
+        status={status}
       />
     </div>
   );

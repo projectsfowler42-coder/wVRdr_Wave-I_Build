@@ -8,7 +8,7 @@ import ErrorLogPanel from "@/inspection/ErrorLogPanel";
 
 export default function InspectorPanel() {
   const modules = listRegisteredModules();
-  const health = healthMonitor.snapshot();
+  const healthEvents = healthMonitor.latestEvents();
   const instruments = listWaveIInstruments();
   const scopedCounts = instruments.reduce<Record<string, number>>((acc, instrument) => {
     acc[instrument.canonicalWaveIBucket] = (acc[instrument.canonicalWaveIBucket] ?? 0) + 1;
@@ -35,7 +35,7 @@ export default function InspectorPanel() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <ModuleInspector modules={modules} />
-        <HealthDashboard health={health} />
+        <HealthDashboard events={healthEvents} />
         <ReleaseInspector />
         <ErrorLogPanel />
       </div>

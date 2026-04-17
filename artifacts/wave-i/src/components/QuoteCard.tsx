@@ -1,13 +1,16 @@
-import { type Quote } from "@/lib/market";
+import { type Quote, type QuoteRefreshStatus } from "@/lib/market";
+import { containerAccent, containerLabel } from "@/lib/containerModel";
+import type { ActiveContainerClass } from "@/lib/portfolio";
 import { fmtDollar, fmtMillions, fmtPct, signClass } from "@/lib/utils";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 
 interface QuoteCardProps {
-  label: "BLUE" | "GREEN";
+  container: ActiveContainerClass;
   ticker: string;
   quote: Quote | undefined;
   loading: boolean;
   error: boolean;
+  status?: QuoteRefreshStatus | null;
 }
 
 function StatRow({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
@@ -19,15 +22,26 @@ function StatRow({ label, value, valueClass }: { label: string; value: string; v
   );
 }
 
-export default function QuoteCard({ label, ticker, quote, loading, error }: QuoteCardProps) {
-  const isBlue = label === "BLUE";
-  const accentClass = isBlue ? "text-blue" : "text-green";
-  const borderClass = isBlue ? "border-blue" : "border-green";
-  const dimClass = isBlue ? "bg-blue-dim" : "bg-green-dim";
+function freshnessLabel(status?: QuoteRefreshStatus | null, quote?: Quote): string {
+  if (!status) return quote?.timestamp ? "local-snapshot" : "missing";
+  switch (status.status) {
+    case "refreshed":
+      return "fresh";
+    case "reused-local":
+      return "reused-local";
+    case "failed":
+      return quote?.timestamp ? "stale" : "missing";
+  }
+}
+
+export default function QuoteCard({ container, ticker, quote, loading, error, status }: QuoteCardProps) {
+  const accent = containerAccent(container);
+  const heading = containerLabel(container);
+  const freshness = freshnessLabel(status, quote);
 
   if (loading) {
     return (
-      <div className={`rounded-lg border ${borderClass} ${dimClass} p-4 animate-pulse`}>
+      <div className={`rounded-lg border ${accent.border} ${accent.dim} p-4 animate-pulse`}>
         <div className="h-4 bg-muted rounded w-24 mb-3" />
         <div className="h-10 bg-muted rounded w-40 mb-2" />
         <div className="h-3 bg-muted rounded w-20" />
@@ -37,9 +51,12 @@ export default function QuoteCard({ label, ticker, quote, loading, error }: Quot
 
   if (error || !quote || quote.price == null) {
     return (
-      <div className={`rounded-lg border ${borderClass} ${dimClass} p-4`}>
-        <div className={`text-xs font-bold tracking-widest uppercase mb-2 ${accentClass}`}>{label} · {ticker}</div>
+      <div className={`rounded-lg border ${accent.border} ${accent.dim} p-4`}>
+        <div className={`text-xs font-bold tracking-widest uppercase mb-2 ${accent.text}`}>{heading} · {ticker || "—"}</div>
         <div className="text-muted-foreground text-sm">No local quote snapshot available.</div>
+        <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          {freshness} · {status?.source ?? "none"}
+        </div>
       </div>
     );
   }
@@ -49,15 +66,17 @@ export default function QuoteCard({ label, ticker, quote, loading, error }: Quot
   const ts = quote.timestamp ? new Date(quote.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 
   return (
-    <div className={`rounded-lg border ${borderClass} ${dimClass} p-4`}>
+    <div className={`rounded-lg border ${accent.border} ${accent.dim} p-4`}>
       <div className="flex items-start justify-between mb-3">
         <div>
-          <div className={`text-xs font-bold tracking-widest uppercase ${accentClass}`}>{label}</div>
+          <div className={`text-xs font-bold tracking-widest uppercase ${accent.text}`}>{heading}</div>
           <div className="text-xs text-muted-foreground">{ticker}</div>
         </div>
         <div className="text-right">
           <div className="text-[10px] text-muted-foreground">Snapshot {ts}</div>
-          <div className="text-[10px] text-muted-foreground">Local</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
+            {freshness} · {status?.source ?? "local"}
+          </div>
         </div>
       </div>
 
