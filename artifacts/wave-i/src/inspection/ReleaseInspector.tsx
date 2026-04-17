@@ -1,6 +1,8 @@
 import { releaseRegistry } from "@/runtime/release/ReleaseRegistry";
 
 export default function ReleaseInspector() {
+  const hasRollbackTarget = Boolean(releaseRegistry.previous);
+
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="text-sm font-semibold text-foreground">Release / Ghost Image</div>
@@ -8,7 +10,7 @@ export default function ReleaseInspector() {
         <div>active: {releaseRegistry.active ?? "none yet"}</div>
         <div>previous: {releaseRegistry.previous ?? "none yet"}</div>
         <div>known releases: {releaseRegistry.releases.length}</div>
-        <div>rollback posture: pointer-addressable once a Ghost Image is generated</div>
+        <div>rollback target: {hasRollbackTarget ? "available" : "not yet recorded"}</div>
       </div>
     </div>
   );
