@@ -5,6 +5,7 @@ import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
 import CapitalSummary from "@/components/CapitalSummary";
 import DataQualityLedger from "@/components/DataQualityLedger";
+import ExceptionSeverityLadder from "@/components/ExceptionSeverityLadder";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import { buildCapitalSummary } from "@/lib/capital-summary";
 import { deriveHoldingContext } from "@/lib/decision-model";
@@ -80,6 +81,7 @@ export default function WarRoom() {
   const refreshIssues = harvestReport?.statuses.filter((status) => status.status !== "refreshed") ?? [];
   const coveredHoldings = holdings.filter((holding) => Boolean(quotesByTicker[holding.ticker])).length;
   const quoteCoveragePct = holdings.length > 0 ? Math.round((coveredHoldings / holdings.length) * 100) : 0;
+  const nowMs = lastUpdated ?? Date.now();
   const readinessState =
     harvestState === "running"
       ? "refreshing"
@@ -181,11 +183,19 @@ export default function WarRoom() {
             </div>
           </section>
 
+          <ExceptionSeverityLadder
+            holdings={holdings}
+            quotesByTicker={quotesByTicker}
+            refreshStatuses={harvestReport?.statuses ?? []}
+            harvestState={harvestState}
+            nowMs={nowMs}
+          />
+
           <DataQualityLedger
             holdings={holdings}
             quotesByTicker={quotesByTicker}
             refreshStatuses={harvestReport?.statuses ?? []}
-            nowMs={lastUpdated ?? Date.now()}
+            nowMs={nowMs}
           />
 
           <CapitalSummary summary={summary} />
