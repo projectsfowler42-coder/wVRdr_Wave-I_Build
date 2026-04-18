@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
 import CapitalSummary from "@/components/CapitalSummary";
+import DataQualityLedger from "@/components/DataQualityLedger";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import { buildCapitalSummary } from "@/lib/capital-summary";
 import { deriveHoldingContext } from "@/lib/decision-model";
@@ -179,6 +180,13 @@ export default function WarRoom() {
               <ReadinessMetric label="Telemetry cards" value={String(contexts.length)} detail="Position contexts computed this render" />
             </div>
           </section>
+
+          <DataQualityLedger
+            holdings={holdings}
+            quotesByTicker={quotesByTicker}
+            refreshStatuses={harvestReport?.statuses ?? []}
+            nowMs={lastUpdated ?? Date.now()}
+          />
 
           <CapitalSummary summary={summary} />
 
