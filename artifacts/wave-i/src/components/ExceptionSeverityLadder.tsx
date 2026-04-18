@@ -22,12 +22,13 @@ interface SeverityRow {
   action: string;
 }
 
-function hasUsableQuote(quote: Quote | undefined): boolean {
+function hasUsableQuote(quote: Quote | undefined): quote is Quote {
   return Boolean(quote && quote.price != null && quote.timestamp > 0);
 }
 
 function isStale(quote: Quote | undefined, nowMs: number): boolean {
-  return hasUsableQuote(quote) && nowMs - quote.timestamp > STALE_QUOTE_MS;
+  if (!hasUsableQuote(quote)) return false;
+  return nowMs - quote.timestamp > STALE_QUOTE_MS;
 }
 
 function tone(severity: Severity): string {
