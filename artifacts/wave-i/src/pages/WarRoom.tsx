@@ -20,6 +20,8 @@ type LocalHarvestReport = {
   finishedAt: string | null;
 };
 
+const REFRESH_TIMEOUT_MS = 8000;
+
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
@@ -28,6 +30,17 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
       {detail ? <div className="mt-1 text-[11px] text-muted-foreground">{detail}</div> : null}
     </div>
   );
+}
+
+function timeoutStatus(tickers: string[]): QuoteRefreshStatus[] {
+  const timestamp = new Date().toISOString();
+  return tickers.map((symbol) => ({
+    symbol,
+    status: "failed",
+    source: "timeout",
+    timestamp,
+    reason: `Refresh exceeded ${REFRESH_TIMEOUT_MS / 1000}s guardrail and was released back to the operator.`,
+  }));
 }
 
 export default function WarRoom() {
@@ -63,12 +76,20 @@ export default function WarRoom() {
   async function handleHarvest() {
     if (harvestState === "running") return;
     setHarvestState("running");
+
+    const tickers = [...new Set([
+      ...listWaveIInstruments().map((instrument) => instrument.ticker),
+      ...holdings.map((holding) => holding.ticker),
+    ].filter(Boolean))];
+
     try {
-      const tickers = [...new Set([
-        ...listWaveIInstruments().map((instrument) => instrument.ticker),
-        ...holdings.map((holding) => holding.ticker),
-      ].filter(Boolean))];
-      const result = await refreshQuotes(tickers);
+      const result = await Promise.race([
+        refreshQuotes(tickers),
+        new Promise<{ statuses: QuoteRefreshStatus[]; failed: string[] }>((resolve) => {
+          window.setTimeout(() => resolve({ statuses: timeoutStatus(tickers), failed: tickers }), REFRESH_TIMEOUT_MS);
+        }),
+      ]);
+
       const now = Date.now();
       setLastUpdated(now);
       setHarvestReport({
@@ -78,13 +99,13 @@ export default function WarRoom() {
         finishedAt: new Date(now).toISOString(),
       });
       setQuoteEpoch((value) => value + 1);
-      setHarvestState("completed");
     } catch (error) {
       const now = Date.now();
       setLastUpdated(now);
       setHarvestReport({ updated: 0, failed: 1, statuses: [], finishedAt: new Date(now).toISOString() });
-      setHarvestState("completed");
       console.error("Wave-I refresh failed", error);
+    } finally {
+      setHarvestState("completed");
     }
   }
 
