@@ -131,6 +131,9 @@ export function deriveHoldingContext(args: {
       today,
     }),
     pressureState: args.pressureState ?? "unknown",
-    snapshotAt: quote?.timestamp ? new Date(quote.timestamp).toISOString() : null,
+    snapshotAt:
+      typeof quote?.timestamp === "number" && Number.isFinite(quote.timestamp) && quote.timestamp > 0
+        ? new Date(quote.timestamp).toISOString()
+        : null,
   };
 }
