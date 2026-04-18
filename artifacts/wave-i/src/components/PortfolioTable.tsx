@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQueries } from "@tanstack/react-query";
-import { fetchQuote, type Quote } from "@/lib/market";
+import { loadLocalQuote, type Quote } from "@/lib/market";
 import { type Holding, type ActiveContainerClass, deleteHolding, updateHolding, calcCostBasis, calcCurrentValue, calcUnrealizedGL, calcUnrealizedGLPct, placementFromContainer } from "@/lib/portfolio";
 import { deriveHoldingContext } from "@/lib/decision-model";
 import { getBucketScopedInstruments } from "@/lib/loadInstruments";
@@ -26,7 +25,7 @@ function EditRow({ holding, onSave, onCancel }: { holding: Holding; onSave: (pat
     notes: holding.notes,
   });
 
-  function set<K extends keyof typeof form>(key: K, value: string) { setForm((c) => ({ ...c, [key]: value })); }
+  function set<K extends keyof typeof form>(key: K, value: string) { setForm((current) => ({ ...current, [key]: value })); }
 
   function handleSave() {
     const placement = placementFromContainer(form.container as ActiveContainerClass);
@@ -49,17 +48,17 @@ function EditRow({ holding, onSave, onCancel }: { holding: Holding; onSave: (pat
   const scoped = getBucketScopedInstruments(form.container as ActiveContainerClass);
   return (
     <tr className="bg-accent/20 border-b border-border/30">
-      <td className="px-2 py-2"><select value={form.container} onChange={(e)=>set('container',e.target.value)} className={inputCls}>{ACTIVE_CONTAINERS.map((c)=><option key={c} value={c}>{containerLabel(c)}</option>)}</select></td>
-      <td className="px-2 py-2"><select value={form.ticker} onChange={(e)=>set('ticker',e.target.value)} className={inputCls}>{scoped.map((i)=><option key={i.ticker} value={i.ticker}>{i.ticker}</option>)}</select></td>
-      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.latestDipDate} onChange={(e)=>set('latestDipDate',e.target.value)} /></td>
-      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.nextExDate} onChange={(e)=>set('nextExDate',e.target.value)} /></td>
-      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.nextPayDate} onChange={(e)=>set('nextPayDate',e.target.value)} /></td>
-      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.reviewDate} onChange={(e)=>set('reviewDate',e.target.value)} /></td>
-      <td className="px-2 py-2"><input className={inputCls} type="number" value={form.addBelowPrice} onChange={(e)=>set('addBelowPrice',e.target.value)} /></td>
-      <td className="px-2 py-2"><input className={inputCls} type="number" value={form.trimAbovePrice} onChange={(e)=>set('trimAbovePrice',e.target.value)} /></td>
-      <td className="px-2 py-2"><select className={inputCls} value={form.currentAction} onChange={(e)=>set('currentAction',e.target.value)}><option value="">—</option><option value="DRIP">DRiP</option><option value="HOLD">Hold</option><option value="ADD">Add</option><option value="TRIM">Trim</option><option value="ROTATE">Rotate</option><option value="WAIT">Wait</option><option value="NOTE">Note</option></select></td>
-      <td className="px-2 py-2"><input className={inputCls} type="text" value={form.notes} onChange={(e)=>set('notes',e.target.value)} /></td>
-      <td className="px-2 py-2"><div className="flex gap-1"><button onClick={handleSave}><Check size={13}/></button><button onClick={onCancel}><X size={13}/></button></div></td>
+      <td className="px-2 py-2"><select value={form.container} onChange={(event)=>set('container',event.target.value)} className={inputCls}>{ACTIVE_CONTAINERS.map((container)=><option key={container} value={container}>{containerLabel(container)}</option>)}</select></td>
+      <td className="px-2 py-2"><select value={form.ticker} onChange={(event)=>set('ticker',event.target.value)} className={inputCls}>{scoped.map((instrument)=><option key={instrument.ticker} value={instrument.ticker}>{instrument.ticker}</option>)}</select></td>
+      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.latestDipDate} onChange={(event)=>set('latestDipDate',event.target.value)} /></td>
+      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.nextExDate} onChange={(event)=>set('nextExDate',event.target.value)} /></td>
+      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.nextPayDate} onChange={(event)=>set('nextPayDate',event.target.value)} /></td>
+      <td className="px-2 py-2"><input className={inputCls} type="date" value={form.reviewDate} onChange={(event)=>set('reviewDate',event.target.value)} /></td>
+      <td className="px-2 py-2"><input className={inputCls} type="number" value={form.addBelowPrice} onChange={(event)=>set('addBelowPrice',event.target.value)} /></td>
+      <td className="px-2 py-2"><input className={inputCls} type="number" value={form.trimAbovePrice} onChange={(event)=>set('trimAbovePrice',event.target.value)} /></td>
+      <td className="px-2 py-2"><select className={inputCls} value={form.currentAction} onChange={(event)=>set('currentAction',event.target.value)}><option value="">—</option><option value="DRIP">DRiP</option><option value="HOLD">Hold</option><option value="ADD">Add</option><option value="TRIM">Trim</option><option value="ROTATE">Rotate</option><option value="WAIT">Wait</option><option value="NOTE">Note</option></select></td>
+      <td className="px-2 py-2"><input className={inputCls} type="text" value={form.notes} onChange={(event)=>set('notes',event.target.value)} /></td>
+      <td className="px-2 py-2"><div className="flex gap-1"><button type="button" onClick={handleSave}><Check size={13}/></button><button type="button" onClick={onCancel}><X size={13}/></button></div></td>
     </tr>
   );
 }
@@ -67,11 +66,10 @@ function EditRow({ holding, onSave, onCancel }: { holding: Holding; onSave: (pat
 export default function PortfolioTable({ holdings, onHoldingsChange }: PortfolioTableProps) {
   const [containerFilter, setContainerFilter] = useState<ContainerFilter>("ALL");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const filtered = useMemo(() => holdings.filter((h) => containerFilter === "ALL" || h.container === containerFilter), [holdings, containerFilter]);
-  const tickers = useMemo(() => [...new Set(filtered.map((h) => h.ticker))], [filtered]);
-  const quoteResults = useQueries({ queries: tickers.map((ticker) => ({ queryKey: ["quote", ticker], queryFn: () => fetchQuote(ticker), staleTime: Infinity, retry: 0 })) });
-  const quotes = useMemo(() => new Map(tickers.map((ticker, i) => [ticker, quoteResults[i]?.data as Quote | undefined])), [tickers, quoteResults]);
-  const totals = useMemo(() => ({ basis: filtered.reduce((a,h)=>a+calcCostBasis(h),0), divs: filtered.reduce((a,h)=>a+h.dividendCollected,0), income: filtered.reduce((a,h)=>a+h.expectedIncome,0) }), [filtered]);
+  const filtered = useMemo(() => holdings.filter((holding) => containerFilter === "ALL" || holding.container === containerFilter), [holdings, containerFilter]);
+  const tickers = useMemo(() => [...new Set(filtered.map((holding) => holding.ticker))], [filtered]);
+  const quotes = useMemo(() => new Map<string, Quote | undefined>(tickers.map((ticker) => [ticker, loadLocalQuote(ticker)])), [tickers]);
+  const totals = useMemo(() => ({ basis: filtered.reduce((acc, holding)=>acc+calcCostBasis(holding),0), divs: filtered.reduce((acc, holding)=>acc+holding.dividendCollected,0), income: filtered.reduce((acc, holding)=>acc+holding.expectedIncome,0) }), [filtered]);
 
   function save(id: string, patch: Partial<Omit<Holding,'id'>>) { onHoldingsChange(updateHolding(holdings, id, patch)); setEditingId(null); }
 
@@ -81,7 +79,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
     <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border flex-wrap">
         <span className="text-xs font-semibold text-foreground mr-1">Container:</span>
-        {(["ALL",...ACTIVE_CONTAINERS] as ContainerFilter[]).map((c)=><button key={c} onClick={()=>setContainerFilter(c)} className={`px-2.5 py-1 rounded text-xs ${containerFilter===c?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>{c==='ALL'?'ALL':containerLabel(c)}</button>)}
+        {(["ALL",...ACTIVE_CONTAINERS] as ContainerFilter[]).map((container)=><button type="button" key={container} onClick={()=>setContainerFilter(container)} className={`px-2.5 py-1 rounded text-xs ${containerFilter===container?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>{container==='ALL'?'ALL':containerLabel(container)}</button>)}
         <div className="ml-auto flex items-center gap-4 text-[10px] text-muted-foreground"><span>{filtered.length} positions</span><span>Basis {fmtDollar(totals.basis)}</span><span>Div {fmtDollar(totals.divs)}</span><span>Income {fmtDollar(totals.income)}</span></div>
       </div>
       <div className="overflow-x-auto">
@@ -127,7 +125,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
                   <td className="px-2 py-2.5">{fmtDollar(ctx.trimAbovePrice)}</td>
                   <td className="px-2 py-2.5">{holding.currentAction || ctx.triggerState}</td>
                   <td className="px-2 py-2.5 max-w-[160px]"><span className="truncate block" title={holding.notes}>{holding.notes || '—'}</span></td>
-                  <td className="px-2 py-2.5"><div className="flex gap-1"><button onClick={()=>setEditingId(holding.id)}><Pencil size={12}/></button><button onClick={()=>{ if(window.confirm('Remove this holding?')) onHoldingsChange(deleteHolding(holdings, holding.id)); }}><Trash2 size={12}/></button></div></td>
+                  <td className="px-2 py-2.5"><div className="flex gap-1"><button type="button" onClick={()=>setEditingId(holding.id)}><Pencil size={12}/></button><button type="button" onClick={()=>{ if(window.confirm('Remove this holding?')) onHoldingsChange(deleteHolding(holdings, holding.id)); }}><Trash2 size={12}/></button></div></td>
                 </tr>
               );
             })}
