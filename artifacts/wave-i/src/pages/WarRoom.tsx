@@ -33,11 +33,11 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
 }
 
 function timeoutStatus(tickers: string[]): QuoteRefreshStatus[] {
-  const timestamp = new Date().toISOString();
-  return tickers.map((symbol) => ({
+  const timestamp = Date.now();
+  return tickers.map((symbol): QuoteRefreshStatus => ({
     symbol,
     status: "failed",
-    source: "timeout",
+    source: "none",
     timestamp,
     reason: `Refresh exceeded ${REFRESH_TIMEOUT_MS / 1000}s guardrail and was released back to the operator.`,
   }));
