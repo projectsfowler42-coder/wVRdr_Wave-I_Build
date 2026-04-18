@@ -2,7 +2,7 @@ import type { TruthClass } from "@/runtime/truth/TruthEnvelope";
 
 export type WvRdrActor = "operator" | "system" | "adapter";
 
-export type WvRdrContainerCode = "|W|" | "|M|" | "[B]" | "[G]" | "|P|" | "|Y|" | "[S]";
+export type WaveIContainerCode = "|W|" | "|M|" | "[B]" | "[G]";
 
 export type BaseEvent = {
   eventId: string;
@@ -46,8 +46,8 @@ export type DistributionEvent = BaseEvent & {
 
 export type WalletFlowEvent = BaseEvent & {
   eventType: "WALLET_FLOW";
-  sourceContainer: WvRdrContainerCode;
-  destinationContainer: WvRdrContainerCode;
+  sourceContainer: WaveIContainerCode;
+  destinationContainer: WaveIContainerCode;
   amountUsd: number;
   reason: string;
   ruleId: string;
@@ -60,21 +60,21 @@ export type WalletFlowEvent = BaseEvent & {
 export type ProbeOpenEvent = BaseEvent & {
   eventType: "PROBE_OPEN";
   probeId: string;
-  walletCode: WvRdrContainerCode;
+  walletCode: WaveIContainerCode;
   sizeUsd: number;
 };
 
 export type ProbeCloseEvent = BaseEvent & {
   eventType: "PROBE_CLOSE";
   probeId: string;
-  walletCode: WvRdrContainerCode;
+  walletCode: WaveIContainerCode;
   netPnlUsd: number;
 };
 
 export type TacticalShotEvent = BaseEvent & {
   eventType: "TACTICAL_SHOT";
   shotId: string;
-  walletCode: WvRdrContainerCode;
+  walletCode: WaveIContainerCode;
   sizeUsd: number;
   permitted: boolean;
   blockedReason?: string;
