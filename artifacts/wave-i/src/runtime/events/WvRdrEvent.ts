@@ -46,38 +46,15 @@ export type DistributionEvent = BaseEvent & {
 
 export type WalletFlowEvent = BaseEvent & {
   eventType: "WALLET_FLOW";
-  sourceContainer: WaveIContainerCode;
-  destinationContainer: WaveIContainerCode;
-  amountUsd: number;
+  timestamp: string;
+  source: WaveIContainerCode;
+  destination: WaveIContainerCode;
+  amount: number;
   reason: string;
   ruleId: string;
-  operatorOverride?: {
-    enabled: boolean;
-    reason?: string;
-  };
-};
-
-export type ProbeOpenEvent = BaseEvent & {
-  eventType: "PROBE_OPEN";
-  probeId: string;
-  walletCode: WaveIContainerCode;
-  sizeUsd: number;
-};
-
-export type ProbeCloseEvent = BaseEvent & {
-  eventType: "PROBE_CLOSE";
-  probeId: string;
-  walletCode: WaveIContainerCode;
-  netPnlUsd: number;
-};
-
-export type TacticalShotEvent = BaseEvent & {
-  eventType: "TACTICAL_SHOT";
-  shotId: string;
-  walletCode: WaveIContainerCode;
-  sizeUsd: number;
-  permitted: boolean;
-  blockedReason?: string;
+  operatorOverride: boolean;
+  truthClass: TruthClass;
+  notes?: string;
 };
 
 export type SimRunEvent = BaseEvent & {
@@ -114,9 +91,6 @@ export type WvRdrEvent =
   | HoldingChangeEvent
   | DistributionEvent
   | WalletFlowEvent
-  | ProbeOpenEvent
-  | ProbeCloseEvent
-  | TacticalShotEvent
   | SimRunEvent
   | ConfidenceChangeEvent
   | OperatorOverrideEvent
