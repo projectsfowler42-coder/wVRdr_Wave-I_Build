@@ -32,6 +32,16 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
   );
 }
 
+function ReadinessMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-background/60 p-3">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-foreground">{value}</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">{detail}</div>
+    </div>
+  );
+}
+
 function timeoutStatus(tickers: string[]): QuoteRefreshStatus[] {
   const timestamp = Date.now();
   return tickers.map((symbol): QuoteRefreshStatus => ({
@@ -67,6 +77,28 @@ export default function WarRoom() {
   );
 
   const refreshIssues = harvestReport?.statuses.filter((status) => status.status !== "refreshed") ?? [];
+  const coveredHoldings = holdings.filter((holding) => Boolean(quotesByTicker[holding.ticker])).length;
+  const quoteCoveragePct = holdings.length > 0 ? Math.round((coveredHoldings / holdings.length) * 100) : 0;
+  const readinessState =
+    harvestState === "running"
+      ? "refreshing"
+      : refreshIssues.length > 0
+        ? "degraded"
+        : holdings.length === 0
+          ? "no positions"
+          : coveredHoldings < holdings.length
+            ? "partial coverage"
+            : "ready";
+  const readinessDetail =
+    readinessState === "ready"
+      ? "All tracked holdings have cached quote coverage."
+      : readinessState === "partial coverage"
+        ? "Some holdings are missing local quote coverage."
+        : readinessState === "degraded"
+          ? "Last refresh returned unresolved ticker exceptions."
+          : readinessState === "refreshing"
+            ? "Refresh is currently inside the guarded execution window."
+            : "Add positions before relying on capital telemetry.";
   const harvestSummary = harvestReport?.finishedAt
     ? harvestReport.failed > 0
       ? `refresh finished · ${harvestReport.updated} updated · ${harvestReport.failed} unresolved`
@@ -130,6 +162,22 @@ export default function WarRoom() {
             <Stat label="Cash / reserve" value={fmtDollar(0)} detail="Secondary panels staged off live surface during hotfix" />
             <Stat label="Refresh issues" value={String(refreshIssues.length)} detail={refreshIssues.length ? "See exceptions below" : "No unresolved ticker failures in last pass"} />
             <Stat label="Last refresh" value={lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} detail={lastUpdated ? "Manual on-demand snapshot" : "No refresh pass yet"} />
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Operator readiness</h2>
+                <div className="mt-1 text-sm font-semibold capitalize text-foreground">{readinessState}</div>
+              </div>
+              <span className="text-[11px] text-muted-foreground md:text-right">{readinessDetail}</span>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <ReadinessMetric label="Refresh state" value={harvestState} detail="Guarded manual refresh loop" />
+              <ReadinessMetric label="Quote coverage" value={`${coveredHoldings}/${holdings.length}`} detail={`${quoteCoveragePct}% of tracked holdings covered`} />
+              <ReadinessMetric label="Exceptions" value={String(refreshIssues.length)} detail="Unresolved ticker refresh statuses" />
+              <ReadinessMetric label="Telemetry cards" value={String(contexts.length)} detail="Position contexts computed this render" />
+            </div>
           </section>
 
           <CapitalSummary summary={summary} />
