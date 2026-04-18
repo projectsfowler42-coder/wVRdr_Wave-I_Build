@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>wVRdr~ Wave-I Rescue Surface</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080b10;--panel:#101723;--panel2:#0d1320;--line:#263244;--text:#e8eef8;--muted:#92a0b3;--cyan:#70e1ff;--green:#76f0aa;--amber:#ffd166;--red:#ff6b6b}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#14243d 0,#080b10 42%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1180px;margin:0 auto;padding:22px 14px 40px}.top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px}.eyebrow{font:700 11px/1.2 ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan)}h1{margin:.35rem 0 0;font-size:26px;line-height:1.05}.muted{color:var(--muted)}.pill{border:1px solid rgba(112,225,255,.45);background:rgba(112,225,255,.1);color:#c7f5ff;border-radius:999px;padding:7px 10px;font:700 11px ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(16,23,35,.94),rgba(10,14,22,.94));border-radius:18px;padding:14px;box-shadow:0 20px 50px rgba(0,0,0,.28)}.label{font:700 10px ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}.value{font-size:24px;font-weight:800;margin-top:6px}.tabs{display:flex;gap:8px;margin-top:18px}.tabs button,.action{border:1px solid var(--line);background:#101723;color:var(--text);border-radius:12px;padding:9px 12px;font-weight:700;cursor:pointer}.tabs button[aria-selected=true],.action.primary{border-color:rgba(112,225,255,.6);background:rgba(112,225,255,.12);color:#d6f8ff}.section{margin-top:14px}.hidden{display:none}table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}th,td{border-bottom:1px solid rgba(148,163,184,.14);padding:10px;text-align:left}th{font:700 10px ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}.scroll{overflow:auto}.good{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}.form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.form input,.form select{width:100%;border:1px solid var(--line);border-radius:10px;background:#090f18;color:var(--text);padding:9px}.note{font-size:12px;line-height:1.55}.footer{margin-top:20px;border-top:1px solid var(--line);padding-top:14px;font:12px ui-monospace,monospace;color:var(--muted)}@media(max-width:860px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.form{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.grid{grid-template-columns:1fr}.value{font-size:20px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div><div class="eyebrow">wVRdr~ Wave-I static rescue</div><h1>Control surface online</h1><p class="muted">React bundle quarantined. Local portfolio storage is still readable.</p></div>
+    <div class="pill">no-react deploy · fault isolated</div>
+  </div>
+
+  <section class="grid">
+    <div class="card"><div class="label">Holdings</div><div id="holdingsCount" class="value">0</div><div class="muted note">from browser storage</div></div>
+    <div class="card"><div class="label">Cost basis</div><div id="basis" class="value">$0.00</div><div class="muted note">entry price × shares</div></div>
+    <div class="card"><div class="label">Market value</div><div id="market" class="value">—</div><div class="muted note">local quote cache when present</div></div>
+    <div class="card"><div class="label">Unrealized</div><div id="gl" class="value">—</div><div id="glpct" class="muted note">awaiting covered quotes</div></div>
+  </section>
+
+  <nav class="tabs" aria-label="surface tabs">
+    <button id="tabControl" aria-selected="true">Control</button>
+    <button id="tabPortfolio" aria-selected="false">Portfolio</button>
+    <button id="tabFault" aria-selected="false">Fault log</button>
+  </nav>
+
+  <section id="control" class="section card">
+    <div class="label">Position telemetry</div>
+    <div id="telemetry" class="note muted" style="margin-top:10px">No holdings found. Add a position in Portfolio.</div>
+  </section>
+
+  <section id="portfolio" class="section card hidden">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><div class="label">Portfolio tracker</div><p class="muted note">Writes to the same wavei_portfolio_v4 localStorage key as the React surface.</p></div><button class="action" id="exportBtn">Export JSON</button></div>
+    <form id="holdingForm" class="form" style="margin-top:12px">
+      <select id="container"><option>WHITE</option><option>MINT</option><option>BLUE</option><option>GREEN</option></select>
+      <input id="ticker" placeholder="Ticker" required />
+      <input id="shares" type="number" step="0.0001" placeholder="Shares" required />
+      <input id="entryPrice" type="number" step="0.01" placeholder="Entry price" required />
+      <input id="notes" placeholder="Notes" />
+      <button class="action primary" type="submit">Add holding</button>
+    </form>
+    <div class="scroll" style="margin-top:14px"><table><thead><tr><th>Container</th><th>Ticker</th><th>Shares</th><th>Entry</th><th>Quote</th><th>Value</th><th>G/L</th><th>Notes</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+  </section>
+
+  <section id="fault" class="section card hidden">
+    <div class="label">Fault isolation</div>
+    <p class="note muted">This page bypasses the previous React bundle that was throwing minified React #185. Use this as the stable deployment target while the React module tree is repaired behind it.</p>
+    <pre id="faultDump" class="note" style="white-space:pre-wrap;overflow:auto;max-height:360px;background:#090f18;border:1px solid var(--line);border-radius:12px;padding:12px"></pre>
+  </section>
+
+  <div class="footer">deploy marker: static-rescue-2026-04-18 · storage keys: wavei_portfolio_v4, wavei_market_snapshots_v3</div>
+</main>
+<script>
+(function(){
+  const $=id=>document.getElementById(id); const money=n=>Number.isFinite(n)?n.toLocaleString(undefined,{style:'currency',currency:'USD'}):'—'; const num=n=>Number.isFinite(n)?Number(n).toLocaleString(undefined,{maximumFractionDigits:4}):'—';
+  const key='wavei_portfolio_v4', quotesKey='wavei_market_snapshots_v3';
+  const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(f))}catch{return f}};
+  const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){alert('Storage write failed: '+e.message)}};
+  const normalize=h=>({id:h.id||crypto.randomUUID(),container:h.container||'BLUE',ticker:String(h.ticker||'').trim().toUpperCase(),shares:Number(h.shares)||0,entryPrice:Number(h.entryPrice)||0,entryDate:h.entryDate||new Date().toISOString().slice(0,10),dividendCollected:Number(h.dividendCollected)||0,latestDipDate:h.latestDipDate||'',nextExDate:h.nextExDate||'',nextPayDate:h.nextPayDate||'',dripAmount:Number(h.dripAmount)||0,expectedIncome:Number(h.expectedIncome)||0,notes:h.notes||'',thesis:h.thesis||'',currentAction:h.currentAction||'',actionReason:h.actionReason||'',expectedOutcome:h.expectedOutcome||'',reviewDate:h.reviewDate||'',addBelowPrice:h.addBelowPrice??null,trimAbovePrice:h.trimAbovePrice??null,lastActionAt:h.lastActionAt||null,lastActionType:h.lastActionType||'',outcomeNote:h.outcomeNote||''});
+  let holdings=read(key,[]).map(normalize).filter(h=>h.ticker); const quotes=read(quotesKey,{});
+  function q(t){return quotes[String(t).toUpperCase()]||null} function price(t){const v=q(t)?.price; return Number.isFinite(v)?v:null}
+  function render(){
+    holdings=holdings.map(normalize).filter(h=>h.ticker); write(key,holdings);
+    let basis=0, market=0, covered=0; holdings.forEach(h=>{basis+=h.shares*h.entryPrice; const p=price(h.ticker); if(p!==null){market+=h.shares*p; covered++}});
+    $('holdingsCount').textContent=String(holdings.length); $('basis').textContent=money(basis); $('market').textContent=covered?money(market):'—'; const gl=covered?market-basis:null; $('gl').textContent=covered?money(gl):'—'; $('gl').className='value '+(gl>0?'good':gl<0?'bad':''); $('glpct').textContent=covered&&basis?((gl/basis)*100).toFixed(2)+'% covered across '+covered+' quoted positions':'awaiting covered quotes';
+    $('telemetry').innerHTML=holdings.length?holdings.slice(0,8).map(h=>{const p=price(h.ticker), value=p===null?null:h.shares*p, gain=value===null?null:value-h.shares*h.entryPrice; return `<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(148,163,184,.14);padding:9px 0"><b>${h.ticker}</b><span>${h.container}</span><span>${p===null?'awaiting quote':money(p)}</span><span class="${gain>0?'good':gain<0?'bad':'muted'}">${gain===null?'—':money(gain)}</span></div>`}).join(''):'No holdings found. Add a position in Portfolio.';
+    $('rows').innerHTML=holdings.map(h=>{const p=price(h.ticker), value=p===null?null:h.shares*p, gain=value===null?null:value-h.shares*h.entryPrice; return `<tr><td>${h.container}</td><td><b>${h.ticker}</b></td><td>${num(h.shares)}</td><td>${money(h.entryPrice)}</td><td>${p===null?'—':money(p)}</td><td>${value===null?'—':money(value)}</td><td class="${gain>0?'good':gain<0?'bad':'muted'}">${gain===null?'—':money(gain)}</td><td>${h.notes||'—'}</td><td><button class="action" data-del="${h.id}">Remove</button></td></tr>`}).join('');
+    document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{holdings=holdings.filter(h=>h.id!==b.dataset.del);render()});
+    $('faultDump').textContent=JSON.stringify({href:location.href,userAgent:navigator.userAgent,holdings:holdings.length,quoteKeys:Object.keys(quotes).length,localStorageKeys:Object.keys(localStorage).filter(k=>k.startsWith('wavei_')).sort()},null,2);
+  }
+  function tab(name){['control','portfolio','fault'].forEach(id=>$(id).classList.toggle('hidden',id!==name)); $('tabControl').setAttribute('aria-selected',name==='control'); $('tabPortfolio').setAttribute('aria-selected',name==='portfolio'); $('tabFault').setAttribute('aria-selected',name==='fault')}
+  $('tabControl').onclick=()=>tab('control'); $('tabPortfolio').onclick=()=>tab('portfolio'); $('tabFault').onclick=()=>tab('fault');
+  $('holdingForm').onsubmit=e=>{e.preventDefault(); holdings.push(normalize({container:$('container').value,ticker:$('ticker').value,shares:$('shares').value,entryPrice:$('entryPrice').value,notes:$('notes').value})); e.target.reset(); render();};
+  $('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(holdings,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wavei-portfolio-export.json'; a.click(); URL.revokeObjectURL(a.href)};
+  render();
+})();
+</script>
+</body>
+</html>
