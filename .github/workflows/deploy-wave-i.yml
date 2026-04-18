@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy-static-rescue:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -25,30 +25,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.9
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Build Wave-I static app
-        env:
-          BASE_PATH: /${{ github.event.repository.name }}/
-        run: pnpm --filter @workspace/wave-i run build
-
-      - name: Prepare Pages assets
-        run: node scripts/prepare-pages.mjs
-
-      - name: Validate built app exists
-        run: test -f artifacts/wave-i/dist/public/index.html
+      - name: Validate static rescue payload
+        run: |
+          test -f artifacts/wave-i/dist/public/index.html
+          test -f artifacts/wave-i/dist/public/404.html
+          test -f artifacts/wave-i/dist/public/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
