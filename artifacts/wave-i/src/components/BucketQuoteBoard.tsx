@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchQuote, loadRefreshStatus, type Quote } from "@/lib/market";
 import { getBucketScopedInstruments, getInstrumentRecord } from "@/lib/loadInstruments";
-import type { ActiveContainerClass } from "@/lib/portfolio";
-import { ACTIVE_CONTAINERS, containerAccent, containerLabel } from "@/lib/containerModel";
+import type { BucketClass } from "@/lib/portfolio";
+import { containerAccent, containerLabel } from "@/lib/containerModel";
 import QuoteCard from "@/components/QuoteCard";
 import { ChevronDown } from "lucide-react";
 
+const BUCKET_QUOTE_CONTAINERS: BucketClass[] = ["BLUE", "GREEN"];
+
 interface ContainerPanelProps {
-  container: ActiveContainerClass;
+  container: BucketClass;
   defaultTicker: string;
 }
 
@@ -98,7 +100,7 @@ function ContainerPanel({ container, defaultTicker }: ContainerPanelProps) {
 export default function BucketQuoteBoard() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-      {ACTIVE_CONTAINERS.map((container) => (
+      {BUCKET_QUOTE_CONTAINERS.map((container) => (
         <ContainerPanel
           key={container}
           container={container}
