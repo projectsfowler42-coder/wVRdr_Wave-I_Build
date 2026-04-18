@@ -3,7 +3,6 @@ import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import type { HarvestRunState } from "@/block2/truth/canonical-types";
-import BucketQuoteBoard from "@/components/BucketQuoteBoard";
 import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
@@ -194,7 +193,7 @@ export default function WarRoom() {
             <TelemetryCard label="Total capital" value={fmtDollar(totalCapital)} detail="Market value when covered · cost basis fallback otherwise" />
             <TelemetryCard label="Deployed" value={fmtDollar(deployed)} detail="Best available marked position value" />
             <TelemetryCard label="Unrealized" value={fmtDollar(refreshDelta)} detail={fmtPct(capitalSummary.unrealizedGLPct)} />
-            <TelemetryCard label="Cash / reserve" value={fmtDollar(0)} detail="Treasury layer staged off the live surface during hotfix" />
+            <TelemetryCard label="Cash / reserve" value={fmtDollar(0)} detail="Secondary panels staged off live surface during hotfix" />
             <TelemetryCard label="Refresh issues" value={String(unresolvedCount)} detail={unresolvedCount > 0 ? "See per-ticker exceptions below" : "No unresolved ticker failures in last pass"} />
             <TelemetryCard label="Last refresh" value={lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} detail={lastUpdated ? "Manual on-demand snapshot" : "No refresh pass yet"} />
           </section>
@@ -210,14 +209,6 @@ export default function WarRoom() {
           </section>
 
           <RefreshFailures report={harvestReport} />
-
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Supporting market context</h2>
-              <span className="text-[10px] text-muted-foreground">The quote board is support, not the page identity</span>
-            </div>
-            <BucketQuoteBoard />
-          </section>
         </main>
       )}
 
