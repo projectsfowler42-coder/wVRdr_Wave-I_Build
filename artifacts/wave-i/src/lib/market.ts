@@ -1,5 +1,9 @@
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 
+export type QuoteConnectionStatus = "LIVE" | "DEGRADED" | "STALE" | "FAILED";
+export type QuoteTruthClass = "RAW_MARKET" | "UNRESOLVED" | "FAILED";
+export type QuoteSource = "stooq-direct" | "yahoo-direct" | "quarantined-proxy" | "local-cache" | "none";
+
 export interface Quote {
   symbol: string;
   price: number | null;
@@ -19,6 +23,14 @@ export interface Quote {
   afterHoursChangePct: number | null;
   isAfterHours: boolean;
   timestamp: number;
+  observedAt: string | null;
+  source: QuoteSource;
+  connectionStatus: QuoteConnectionStatus;
+  ageSeconds: number | null;
+  truthClass: QuoteTruthClass;
+  stale: boolean;
+  degraded: boolean;
+  conflicted: boolean;
 }
 
 export interface TapeItem {
@@ -31,9 +43,13 @@ export interface TapeItem {
 export interface QuoteRefreshStatus {
   symbol: string;
   status: "refreshed" | "reused-local" | "failed";
-  source: "stooq-direct" | "yahoo-direct" | "quarantined-proxy" | "local-cache" | "none";
+  source: QuoteSource;
   reason: string | null;
   timestamp: number;
+  observedAt: string | null;
+  connectionStatus: QuoteConnectionStatus;
+  ageSeconds: number | null;
+  truthClass: QuoteTruthClass;
 }
 
 export interface RefreshQuotesResult {
@@ -51,12 +67,19 @@ type YahooChartResult = {
   };
 };
 
+type QuoteAttemptResult = {
+  source: QuoteSource;
+  quote: Partial<Quote>;
+  note?: string | null;
+};
+
 const STORAGE_KEY = "wavei_market_snapshots_v3";
 const LEGACY_STORAGE_KEYS = ["wavei_market_snapshots_v2", "wavei_market_snapshots_v1"];
 const STATUS_KEY = "wavei_market_refresh_status_v2";
 const YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
 const STOOQ_BASE = "https://stooq.com/q/l/";
 const QUARANTINED_PROXY_BASE = "https://api.allorigins.win/raw?url=";
+const LIVE_QUOTE_MAX_AGE_MS = 60 * 1000;
 
 function safeStorageGet(key: string): string | null {
   try {
@@ -76,6 +99,19 @@ function safeStorageSet(key: string, value: string): void {
 
 function normalizeSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
+}
+
+function observedAtFromTimestamp(timestamp: number): string | null {
+  return timestamp > 0 ? new Date(timestamp).toISOString() : null;
+}
+
+function ageSecondsFromTimestamp(timestamp: number, nowMs = Date.now()): number | null {
+  if (timestamp <= 0) return null;
+  return Math.max(0, Math.round((nowMs - timestamp) / 1000));
+}
+
+function isUsableQuote(quote: Quote): boolean {
+  return quote.price != null && quote.timestamp > 0;
 }
 
 function emptyQuote(symbol: string): Quote {
@@ -98,6 +134,14 @@ function emptyQuote(symbol: string): Quote {
     afterHoursChangePct: null,
     isAfterHours: false,
     timestamp: 0,
+    observedAt: null,
+    source: "none",
+    connectionStatus: "FAILED",
+    ageSeconds: null,
+    truthClass: "FAILED",
+    stale: false,
+    degraded: false,
+    conflicted: false,
   };
 }
 
@@ -186,12 +230,92 @@ function normalizeQuote(symbol: string, partial?: Partial<Quote> | null): Quote 
   const normalizedSymbol = normalizeSymbol(symbol);
   const base = emptyQuote(normalizedSymbol);
   if (!partial) return base;
+
+  const timestamp = typeof partial.timestamp === "number" ? partial.timestamp : 0;
+  const connectionStatus = partial.connectionStatus ?? base.connectionStatus;
+  const truthClass = partial.truthClass ?? base.truthClass;
+
   return {
     ...base,
     ...partial,
     symbol: normalizedSymbol,
-    timestamp: typeof partial.timestamp === "number" ? partial.timestamp : 0,
+    timestamp,
+    observedAt: partial.observedAt ?? observedAtFromTimestamp(timestamp),
+    source: partial.source ?? base.source,
+    connectionStatus,
+    ageSeconds: partial.ageSeconds ?? ageSecondsFromTimestamp(timestamp),
+    truthClass,
+    stale: partial.stale ?? connectionStatus === "STALE",
+    degraded: partial.degraded ?? connectionStatus === "DEGRADED",
+    conflicted: Boolean(partial.conflicted),
     isAfterHours: Boolean(partial.isAfterHours && partial.afterHoursPrice != null),
+  };
+}
+
+function annotateQuote(
+  quote: Quote,
+  source: QuoteSource,
+  connectionStatus: QuoteConnectionStatus,
+  truthClass: QuoteTruthClass,
+): Quote {
+  const timestamp = quote.timestamp;
+  return {
+    ...quote,
+    source,
+    connectionStatus,
+    observedAt: observedAtFromTimestamp(timestamp),
+    ageSeconds: ageSecondsFromTimestamp(timestamp),
+    truthClass,
+    stale: connectionStatus === "STALE",
+    degraded: connectionStatus === "DEGRADED",
+    conflicted: false,
+  };
+}
+
+function cachedQuote(symbol: string): Quote {
+  const normalizedSymbol = normalizeSymbol(symbol);
+  const stored = normalizeQuote(normalizedSymbol, readStoredSnapshots()[normalizedSymbol] ?? null);
+  if (!isUsableQuote(stored)) return annotateQuote(stored, "none", "FAILED", "FAILED");
+  return annotateQuote(stored, "local-cache", "STALE", "UNRESOLVED");
+}
+
+function classifyRemoteQuote(source: QuoteSource, quote: Quote): { connectionStatus: QuoteConnectionStatus; truthClass: QuoteTruthClass; note: string | null } {
+  if (!isUsableQuote(quote)) {
+    return { connectionStatus: "FAILED", truthClass: "FAILED", note: "remote source returned no usable numeric quote" };
+  }
+
+  if (source === "quarantined-proxy") {
+    return { connectionStatus: "DEGRADED", truthClass: "UNRESOLVED", note: "direct transports failed; used quarantined proxy" };
+  }
+
+  const ageMs = Date.now() - quote.timestamp;
+  if (ageMs > LIVE_QUOTE_MAX_AGE_MS) {
+    return { connectionStatus: "DEGRADED", truthClass: "UNRESOLVED", note: "direct feed responded but quote timestamp is outside live freshness window" };
+  }
+
+  return { connectionStatus: "LIVE", truthClass: "RAW_MARKET", note: null };
+}
+
+function buildRefreshStatus(
+  symbol: string,
+  status: QuoteRefreshStatus["status"],
+  source: QuoteSource,
+  connectionStatus: QuoteConnectionStatus,
+  truthClass: QuoteTruthClass,
+  reason: string | null,
+  quote?: Quote,
+): QuoteRefreshStatus {
+  const timestamp = Date.now();
+  return {
+    symbol: normalizeSymbol(symbol),
+    status,
+    source,
+    reason,
+    timestamp,
+    observedAt: quote ? observedAtFromTimestamp(quote.timestamp) : null,
+    connectionStatus,
+    ageSeconds: quote ? ageSecondsFromTimestamp(quote.timestamp, timestamp) : null,
+    truthClass,
   };
 }
 
@@ -328,9 +452,7 @@ async function requestYahooViaQuarantinedProxy(symbol: string): Promise<Partial<
 }
 
 export function loadLocalQuote(symbol: string): Quote {
-  const normalizedSymbol = normalizeSymbol(symbol);
-  const stored = readStoredSnapshots()[normalizedSymbol];
-  return normalizeQuote(normalizedSymbol, stored ?? null);
+  return cachedQuote(symbol);
 }
 
 export function saveLocalQuote(symbol: string, partial: Partial<Quote>): Quote {
@@ -377,7 +499,7 @@ async function refreshOne(symbol: string): Promise<{ quote: Quote; status: Quote
   const local = loadLocalQuote(normalizedSymbol);
   const errors: string[] = [];
 
-  const attempts: Array<() => Promise<{ source: QuoteRefreshStatus["source"]; quote: Partial<Quote>; note?: string | null }>> = [
+  const attempts: Array<() => Promise<QuoteAttemptResult>> = [
     async () => ({ source: "stooq-direct", quote: await requestStooqDirect(normalizedSymbol), note: null }),
     async () => ({ source: "yahoo-direct", quote: await requestYahooDirect(normalizedSymbol), note: null }),
     async () => ({ source: "quarantined-proxy", quote: await requestStooqViaQuarantinedProxy(normalizedSymbol), note: "direct transports failed; used quarantined proxy" }),
@@ -388,43 +510,52 @@ async function refreshOne(symbol: string): Promise<{ quote: Quote; status: Quote
     try {
       const result = await attempt();
       const saved = saveLocalQuote(normalizedSymbol, result.quote);
+      const classification = classifyRemoteQuote(result.source, saved);
+      const reason = result.note ?? classification.note;
+      const quote = annotateQuote(saved, result.source, classification.connectionStatus, classification.truthClass);
       return {
-        quote: saved,
-        status: {
-          symbol: normalizedSymbol,
-          status: "refreshed",
-          source: result.source,
-          reason: result.note ?? null,
-          timestamp: Date.now(),
-        },
+        quote,
+        status: buildRefreshStatus(
+          normalizedSymbol,
+          classification.connectionStatus === "FAILED" ? "failed" : "refreshed",
+          result.source,
+          classification.connectionStatus,
+          classification.truthClass,
+          reason,
+          quote,
+        ),
       };
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
   }
 
-  if (local.price != null) {
+  if (isUsableQuote(local)) {
     return {
       quote: local,
-      status: {
-        symbol: normalizedSymbol,
-        status: "reused-local",
-        source: "local-cache",
-        reason: errors.join(" | ") || "remote refresh failed; reusing local snapshot",
-        timestamp: Date.now(),
-      },
+      status: buildRefreshStatus(
+        normalizedSymbol,
+        "reused-local",
+        "local-cache",
+        "STALE",
+        "UNRESOLVED",
+        errors.join(" | ") || "remote refresh failed; reusing stale local snapshot",
+        local,
+      ),
     };
   }
 
   return {
     quote: local,
-    status: {
-      symbol: normalizedSymbol,
-      status: "failed",
-      source: "none",
-      reason: errors.join(" | ") || "all refresh transports failed",
-      timestamp: Date.now(),
-    },
+    status: buildRefreshStatus(
+      normalizedSymbol,
+      "failed",
+      "none",
+      "FAILED",
+      "FAILED",
+      errors.join(" | ") || "all refresh transports failed",
+      local,
+    ),
   };
 }
 
@@ -442,7 +573,7 @@ export async function refreshQuotes(symbols?: string[]): Promise<RefreshQuotesRe
     const result = await refreshOne(symbol);
     quotes[symbol] = result.quote;
     statuses.push(result.status);
-    if (result.status.status === "failed") failed.push(symbol);
+    if (result.status.connectionStatus === "FAILED") failed.push(symbol);
   }
 
   writeStoredStatuses(statuses);
