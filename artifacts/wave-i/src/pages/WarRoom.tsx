@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
 import CapitalSummary from "@/components/CapitalSummary";
+import DataQualityLedger from "@/components/DataQualityLedger";
+import ExceptionSeverityLadder from "@/components/ExceptionSeverityLadder";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import { buildCapitalSummary } from "@/lib/capital-summary";
 import { deriveHoldingContext } from "@/lib/decision-model";
@@ -32,13 +34,27 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
   );
 }
 
+function ReadinessMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-background/60 p-3">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-foreground">{value}</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">{detail}</div>
+    </div>
+  );
+}
+
 function timeoutStatus(tickers: string[]): QuoteRefreshStatus[] {
-  const timestamp = new Date().toISOString();
-  return tickers.map((symbol) => ({
+  const timestamp = Date.now();
+  return tickers.map((symbol): QuoteRefreshStatus => ({
     symbol,
     status: "failed",
-    source: "timeout",
+    source: "none",
     timestamp,
+    observedAt: null,
+    connectionStatus: "FAILED",
+    ageSeconds: null,
+    truthClass: "FAILED",
     reason: `Refresh exceeded ${REFRESH_TIMEOUT_MS / 1000}s guardrail and was released back to the operator.`,
   }));
 }
@@ -67,6 +83,29 @@ export default function WarRoom() {
   );
 
   const refreshIssues = harvestReport?.statuses.filter((status) => status.status !== "refreshed") ?? [];
+  const coveredHoldings = holdings.filter((holding) => Boolean(quotesByTicker[holding.ticker])).length;
+  const quoteCoveragePct = holdings.length > 0 ? Math.round((coveredHoldings / holdings.length) * 100) : 0;
+  const nowMs = lastUpdated ?? Date.now();
+  const readinessState =
+    harvestState === "running"
+      ? "refreshing"
+      : refreshIssues.length > 0
+        ? "degraded"
+        : holdings.length === 0
+          ? "no positions"
+          : coveredHoldings < holdings.length
+            ? "partial coverage"
+            : "ready";
+  const readinessDetail =
+    readinessState === "ready"
+      ? "All tracked holdings have cached quote coverage."
+      : readinessState === "partial coverage"
+        ? "Some holdings are missing local quote coverage."
+        : readinessState === "degraded"
+          ? "Last refresh returned unresolved ticker exceptions."
+          : readinessState === "refreshing"
+            ? "Refresh is currently inside the guarded execution window."
+            : "Add positions before relying on capital telemetry.";
   const harvestSummary = harvestReport?.finishedAt
     ? harvestReport.failed > 0
       ? `refresh finished · ${harvestReport.updated} updated · ${harvestReport.failed} unresolved`
@@ -132,6 +171,37 @@ export default function WarRoom() {
             <Stat label="Last refresh" value={lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} detail={lastUpdated ? "Manual on-demand snapshot" : "No refresh pass yet"} />
           </section>
 
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Operator readiness</h2>
+                <div className="mt-1 text-sm font-semibold capitalize text-foreground">{readinessState}</div>
+              </div>
+              <span className="text-[11px] text-muted-foreground md:text-right">{readinessDetail}</span>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <ReadinessMetric label="Refresh state" value={harvestState} detail="Guarded manual refresh loop" />
+              <ReadinessMetric label="Quote coverage" value={`${coveredHoldings}/${holdings.length}`} detail={`${quoteCoveragePct}% of tracked holdings covered`} />
+              <ReadinessMetric label="Exceptions" value={String(refreshIssues.length)} detail="Unresolved ticker refresh statuses" />
+              <ReadinessMetric label="Telemetry cards" value={String(contexts.length)} detail="Position contexts computed this render" />
+            </div>
+          </section>
+
+          <ExceptionSeverityLadder
+            holdings={holdings}
+            quotesByTicker={quotesByTicker}
+            refreshStatuses={harvestReport?.statuses ?? []}
+            harvestState={harvestState}
+            nowMs={nowMs}
+          />
+
+          <DataQualityLedger
+            holdings={holdings}
+            quotesByTicker={quotesByTicker}
+            refreshStatuses={harvestReport?.statuses ?? []}
+            nowMs={nowMs}
+          />
+
           <CapitalSummary summary={summary} />
 
           <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -176,9 +246,9 @@ export default function WarRoom() {
                   <div key={`${status.symbol}-${status.timestamp}`} className="rounded-xl border border-amber-200 bg-white p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-foreground">{status.symbol}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-amber-700">{status.status}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-amber-700">{status.connectionStatus}</span>
                     </div>
-                    <div className="mt-1 text-[10px] text-muted-foreground">source: {status.source}</div>
+                    <div className="mt-1 text-[10px] text-muted-foreground">source: {status.source} · truth: {status.truthClass}</div>
                     {status.reason ? <div className="mt-2 text-[11px] text-muted-foreground">{status.reason}</div> : null}
                   </div>
                 ))}
