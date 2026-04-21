@@ -9,7 +9,7 @@ interface AddHoldingFormProps {
   onHoldingsChange: (h: Holding[]) => void;
 }
 
-const DEFAULT_CONTAINER: ActiveContainerClass = "WHITE";
+const DEFAULT_CONTAINER: ActiveContainerClass = "MINT";
 
 const EMPTY_FORM = {
   container: DEFAULT_CONTAINER,
