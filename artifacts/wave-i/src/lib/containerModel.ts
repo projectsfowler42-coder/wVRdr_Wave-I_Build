@@ -1,13 +1,11 @@
 import type { ActiveContainerClass } from "@/lib/portfolio";
 
-export const ACTIVE_CONTAINERS: ActiveContainerClass[] = ["WHITE", "MINT", "BLUE", "GREEN"];
+export const ACTIVE_CONTAINERS: ActiveContainerClass[] = ["MINT", "BLUE", "GREEN"];
 
 export function containerLabel(container: ActiveContainerClass): string {
   switch (container) {
-    case "WHITE":
-      return "|W| WHITE";
     case "MINT":
-      return "|M| MINT";
+      return "|M| D3 WALLET";
     case "BLUE":
       return "[B] BLUE";
     case "GREEN":
@@ -16,8 +14,12 @@ export function containerLabel(container: ActiveContainerClass): string {
 }
 
 export function containerParentLabel(container: ActiveContainerClass): string {
-  if (container === "MINT") return "inside [G] GREEN";
+  if (container === "MINT") return "staging cash wallet · not MINT ETF";
   return "—";
+}
+
+export function instrumentDisplayLabel(ticker: string): string {
+  return ticker.toUpperCase() === "MINT" ? "MINT ETF" : ticker.toUpperCase();
 }
 
 export function containerAccent(container: ActiveContainerClass): {
@@ -26,12 +28,6 @@ export function containerAccent(container: ActiveContainerClass): {
   dim: string;
 } {
   switch (container) {
-    case "WHITE":
-      return {
-        text: "text-slate-300",
-        border: "border-slate-300/30",
-        dim: "bg-slate-300/10",
-      };
     case "MINT":
       return {
         text: "text-emerald-300",
