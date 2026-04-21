@@ -1,5 +1,5 @@
 export type BucketClass = "BLUE" | "GREEN";
-export type WalletClass = "WHITE" | "MINT";
+export type WalletClass = "MINT";
 export type ActiveContainerClass = BucketClass | WalletClass;
 export type DecisionAction = "DRIP" | "HOLD" | "ADD" | "TRIM" | "ROTATE" | "WAIT" | "NOTE";
 
@@ -52,8 +52,6 @@ function safeStorageSet(key: string, value: string): void {
 
 export function placementFromContainer(container: ActiveContainerClass): { bucket?: BucketClass; wallet?: WalletClass } {
   switch (container) {
-    case "WHITE":
-      return { wallet: "WHITE" };
     case "MINT":
       return { bucket: "GREEN", wallet: "MINT" };
     case "BLUE":
@@ -85,17 +83,18 @@ function parseString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function normalizeContainer(raw: Partial<Holding> & { container?: string; bucket?: string; wallet?: string }): ActiveContainerClass {
-  if (raw.container === "WHITE" || raw.wallet === "WHITE") return "WHITE";
+function normalizeContainer(raw: Partial<Holding> & { container?: string; bucket?: string; wallet?: string }): ActiveContainerClass | null {
   if (raw.container === "MINT" || raw.wallet === "MINT") return "MINT";
+  if (raw.container === "BLUE" || raw.bucket === "BLUE") return "BLUE";
   if (raw.container === "GREEN" || raw.bucket === "GREEN") return "GREEN";
-  return "BLUE";
+  return null;
 }
 
 function normalizeHolding(
   raw: Partial<Holding> & { id?: string; container?: string; bucket?: string; wallet?: string },
-): Holding {
+): Holding | null {
   const container = normalizeContainer(raw);
+  if (!container) return null;
   const placement = placementFromContainer(container);
 
   return {
@@ -144,18 +143,20 @@ export function loadHoldings(): Holding[] {
     const parsed = JSON.parse(raw) as Array<Partial<Holding>>;
     return parsed
       .map((holding) => normalizeHolding(holding))
-      .filter((holding) => Boolean(holding.ticker));
+      .filter((holding): holding is Holding => Boolean(holding?.ticker));
   } catch {
     return [];
   }
 }
 
 export function saveHoldings(holdings: Holding[]): void {
-  safeStorageSet(STORAGE_KEY, JSON.stringify(holdings.map((holding) => normalizeHolding(holding))));
+  safeStorageSet(STORAGE_KEY, JSON.stringify(holdings.map((holding) => normalizeHolding(holding)).filter(Boolean)));
 }
 
 export function addHolding(holdings: Holding[], holding: Omit<Holding, "id">): Holding[] {
-  const next = [...holdings, normalizeHolding({ ...holding, id: crypto.randomUUID() })];
+  const normalized = normalizeHolding({ ...holding, id: crypto.randomUUID() });
+  if (!normalized) return holdings;
+  const next = [...holdings, normalized];
   saveHoldings(next);
   return next;
 }
@@ -165,9 +166,9 @@ export function updateHolding(
   id: string,
   patch: Partial<Omit<Holding, "id">>,
 ): Holding[] {
-  const next = holdings.map((holding) =>
-    holding.id === id ? normalizeHolding({ ...holding, ...patch }) : holding,
-  );
+  const next = holdings
+    .map((holding) => (holding.id === id ? normalizeHolding({ ...holding, ...patch }) : holding))
+    .filter((holding): holding is Holding => Boolean(holding));
   saveHoldings(next);
   return next;
 }
