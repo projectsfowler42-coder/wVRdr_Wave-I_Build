@@ -23,21 +23,39 @@ function StatRow({ label, value, valueClass }: { label: string; value: string; v
 }
 
 function freshnessLabel(status?: QuoteRefreshStatus | null, quote?: Quote): string {
-  if (!status) return quote?.timestamp ? "local-snapshot" : "missing";
+  if (status?.connectionStatus) return status.connectionStatus.toLowerCase();
+  if (quote?.connectionStatus) return quote.connectionStatus.toLowerCase();
+  if (!status) return quote?.timestamp ? "stale" : "missing";
   switch (status.status) {
     case "refreshed":
       return "fresh";
     case "reused-local":
-      return "reused-local";
+      return "stale";
     case "failed":
-      return quote?.timestamp ? "stale" : "missing";
+      return quote?.timestamp ? "stale" : "failed";
   }
+}
+
+function truthLabel(status?: QuoteRefreshStatus | null, quote?: Quote): string {
+  return status?.truthClass ?? quote?.truthClass ?? "UNRESOLVED";
+}
+
+function ageLabel(status?: QuoteRefreshStatus | null, quote?: Quote): string {
+  const ageSeconds = status?.ageSeconds ?? quote?.ageSeconds;
+  if (ageSeconds == null) return "age: —";
+  if (ageSeconds < 60) return `age: ${ageSeconds}s`;
+  const ageMinutes = Math.round(ageSeconds / 60);
+  if (ageMinutes < 120) return `age: ${ageMinutes}m`;
+  return `age: ${Math.round(ageMinutes / 60)}h`;
 }
 
 export default function QuoteCard({ container, ticker, quote, loading, error, status }: QuoteCardProps) {
   const accent = containerAccent(container);
   const heading = containerLabel(container);
   const freshness = freshnessLabel(status, quote);
+  const truth = truthLabel(status, quote);
+  const age = ageLabel(status, quote);
+  const source = status?.source ?? quote?.source ?? "none";
 
   if (loading) {
     return (
@@ -53,9 +71,9 @@ export default function QuoteCard({ container, ticker, quote, loading, error, st
     return (
       <div className={`rounded-lg border ${accent.border} ${accent.dim} p-4`}>
         <div className={`text-xs font-bold tracking-widest uppercase mb-2 ${accent.text}`}>{heading} · {ticker || "—"}</div>
-        <div className="text-muted-foreground text-sm">No local quote snapshot available.</div>
+        <div className="text-muted-foreground text-sm">No defensible quote snapshot available.</div>
         <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-          {freshness} · {status?.source ?? "none"}
+          {freshness} · {source} · {truth} · {age}
         </div>
       </div>
     );
@@ -73,9 +91,12 @@ export default function QuoteCard({ container, ticker, quote, loading, error, st
           <div className="text-xs text-muted-foreground">{ticker}</div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] text-muted-foreground">Snapshot {ts}</div>
+          <div className="text-[10px] text-muted-foreground">Observed {ts}</div>
           <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
-            {freshness} · {status?.source ?? "local"}
+            {freshness} · {source}
+          </div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
+            {truth} · {age}
           </div>
         </div>
       </div>

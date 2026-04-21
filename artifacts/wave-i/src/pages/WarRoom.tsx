@@ -51,6 +51,10 @@ function timeoutStatus(tickers: string[]): QuoteRefreshStatus[] {
     status: "failed",
     source: "none",
     timestamp,
+    observedAt: null,
+    connectionStatus: "FAILED",
+    ageSeconds: null,
+    truthClass: "FAILED",
     reason: `Refresh exceeded ${REFRESH_TIMEOUT_MS / 1000}s guardrail and was released back to the operator.`,
   }));
 }
@@ -242,9 +246,9 @@ export default function WarRoom() {
                   <div key={`${status.symbol}-${status.timestamp}`} className="rounded-xl border border-amber-200 bg-white p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-foreground">{status.symbol}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-amber-700">{status.status}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-amber-700">{status.connectionStatus}</span>
                     </div>
-                    <div className="mt-1 text-[10px] text-muted-foreground">source: {status.source}</div>
+                    <div className="mt-1 text-[10px] text-muted-foreground">source: {status.source} · truth: {status.truthClass}</div>
                     {status.reason ? <div className="mt-2 text-[11px] text-muted-foreground">{status.reason}</div> : null}
                   </div>
                 ))}
