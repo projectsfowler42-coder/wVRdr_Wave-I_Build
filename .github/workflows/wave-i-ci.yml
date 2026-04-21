@@ -1,19 +1,22 @@
 name: Wave-I CI
 
 on:
-  pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches:
+      - main
+      - chatgpt/pre-wave-i-manual-d3-contract
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  typecheck-and-build:
-    name: Typecheck and build
+  validate-wave-i:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,7 +25,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
-          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -34,7 +36,10 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm run typecheck
 
-      - name: Build
-        run: pnpm build
+      - name: Test Wave-I
+        run: pnpm run test:wave-i
+
+      - name: Build Wave-I
+        run: pnpm --filter @workspace/wave-i run build
