@@ -1,4 +1,4 @@
-export type WaveIBucketClass = "WHITE" | "MINT" | "BLUE" | "GREEN";
+export type WaveIBucketClass = "MINT" | "BLUE" | "GREEN";
 
 export interface InstrumentRelevantNumbers {
   yield: number | null;
