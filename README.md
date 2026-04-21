@@ -1,63 +1,62 @@
 # Wave-I
 
-Wave-I is the frontend-only, truth-first operator surface for WaveRider.
+Wave-I is the truth-first operator surface for WaveRider.
 
-## Canonical doctrine
-- `[B]` and `[G]` are buckets
-- `|W|` and `|M|` are wallets
-- `|M|` is nested inside `[G]`
-- buckets and wallets are different object classes
-- no backend, no server routes, no remote truth store, no hidden cloud sync
-- no runtime API dependence
-- `[Harvest Data]` is the one canonical harvest action
-- provenance, truth classes, source classes, and quarantine remain explicit
-- weak material may be retained but must not silently become authoritative truth
+This branch is locked to the **Pre-Wave-I Manual D3 Bridge** runtime contract.
+
+## Bridge doctrine
+
+- `[B]` and `[G]` are buckets.
+- `|M|` is the D3 staging wallet.
+- `MINT ETF` is ticker `MINT` and is not the `|M|` wallet.
+- No bare `Mint` runtime label is allowed.
+- `|W|` is deliberately excluded in this bridge mode.
+- Operator-triggered refresh is allowed for selected bridge tickers only.
+- `[Data Refresh]` fetches selected tickers and returns source, timestamp, truth class, and status.
+- `[Harvest Data]` stores the latest already-refreshed state as an immutable local snapshot.
+- Harvest must not fetch.
+- No timers, no polling, no auto-fire, no hidden agent, and no broker execution.
+- Missing required metrics block, degrade, watchlist, or mark the row unresolved. Missing data is not a sell signal.
 
 ## Runtime scope now mounted in repo
-- `|W| WHITE`
-- `|M| MINT`
+
+- `|M| D3 WALLET`
 - `[B] BLUE`
 - `[G] GREEN`
 
+Bridge instruments:
+
+- `[G]`: XFLT, SRLN, JBBB, BKLN
+- `[B]`: JAAA, FLOT, MINT ETF
+
 ## What is now landed on GitHub
-- frontend-only Wave-I app under `artifacts/wave-i/`
-- B.4-A Ghost Chassis runtime scaffolding under `artifacts/wave-i/src/runtime/`
-- contract types under `artifacts/wave-i/src/contracts/`
-- inspection surface under `artifacts/wave-i/src/inspection/`
-- canonical local Wave-I instrument DB under `artifacts/wave-i/src/data/`
-- partial Block-3 premium-shell promotion under `artifacts/wave-i/src/block3/`
-- Ghost Image scripts under `scripts/`
-- GitHub Pages workflow under `.github/workflows/deploy-wave-i.yml`
+
+- Wave-I app under `artifacts/wave-i/`
+- Pre-Wave-I Manual D3 bridge contract under `docs/pre-wave-i-manual-d3-bridge-contract.md`
+- bridge constants and weighted allocation under `artifacts/wave-i/src/lib/bridge-mode.ts`
+- bridge comparability gates under `artifacts/wave-i/src/lib/bridge-comparability.ts`
+- bridge-only instrument DB under `artifacts/wave-i/src/data/`
+- separated refresh and harvest controls in the runtime UI
+- branch CI workflow under `.github/workflows/wave-i-ci.yml`
 
 ## Automated release proof
-Wave-I release proof is now designed to be automated from `main`.
 
 A valid automated proof run requires all of the following:
+
 - workspace typecheck passes
 - Wave-I tests pass
 - Wave-I static build passes
-- Ghost Image metadata is generated
-- Ghost release package validates
-- Pages artifact uploads and deploys
-- deployed Pages site passes smoke check
+- Pages artifact uploads and deploys where applicable
+- deployed Pages site passes smoke check where applicable
 
-Stable release proof is not just “build succeeded”.
-It is:
-- green workflow
-- Ghost Image package
-- rollback-addressable registry pointer
-- successful Pages smoke check
+Stable release proof is not just “build succeeded”. It is green workflow plus runtime behavior that matches the bridge contract.
 
 ## Current repo state
-Wave-I is no longer just a Block-2 shell with quarantined Block-3 references.
 
-The repo now contains:
-- Block-2 operative foundations
-- partial Block-3 promotion into mounted runtime
-- B.4-A Ghost Chassis landing on `main`
-- release-proof automation path on `main`
+The repo now contains the bridge-mode implementation branch for PR validation. This is not personalised financial advice, tax advice, or a broker execution system.
 
 ## Remaining proof gates
-1. run the workflow successfully on `main`
-2. confirm Pages publishes cleanly
-3. confirm generated Ghost release metadata is committed by the workflow
+
+1. Run the Wave-I CI workflow on this branch.
+2. Fix any typecheck/test/build failures.
+3. Confirm the deployed runtime shows no `|W|`, no bare `Mint`, separated `[Data Refresh]` and `[Harvest Data]`, bridge-only instruments, and visible blocking/degradation for missing comparable metrics.
