@@ -1,5 +1,5 @@
 export type BucketClass = "BLUE" | "GREEN";
-export type WalletClass = "WHITE" | "MINT";
+export type WalletClass = "MINT";
 export type ActiveContainerClass = BucketClass | WalletClass;
 export type DecisionAction = "DRIP" | "HOLD" | "ADD" | "TRIM" | "ROTATE" | "WAIT" | "NOTE";
 
@@ -31,8 +31,8 @@ export interface Holding {
   outcomeNote: string;
 }
 
-const STORAGE_KEY = "wavei_portfolio_v4";
-const LEGACY_STORAGE_KEYS = ["wavei_portfolio_v3", "wavei_portfolio_v2", "wavei_portfolio_v1"];
+const STORAGE_KEY = "wavei_portfolio_v5_pre_wave_i_bridge";
+const LEGACY_STORAGE_KEYS = ["wavei_portfolio_v4", "wavei_portfolio_v3", "wavei_portfolio_v2", "wavei_portfolio_v1"];
 
 function safeStorageGet(key: string): string | null {
   try {
@@ -46,16 +46,14 @@ function safeStorageSet(key: string, value: string): void {
   try {
     if (typeof localStorage !== "undefined") localStorage.setItem(key, value);
   } catch {
-    // Storage can fail in private mode or locked-down environments.
+    return;
   }
 }
 
 export function placementFromContainer(container: ActiveContainerClass): { bucket?: BucketClass; wallet?: WalletClass } {
   switch (container) {
-    case "WHITE":
-      return { wallet: "WHITE" };
     case "MINT":
-      return { bucket: "GREEN", wallet: "MINT" };
+      return { wallet: "MINT" };
     case "BLUE":
       return { bucket: "BLUE" };
     case "GREEN":
@@ -86,9 +84,9 @@ function parseString(value: unknown): string {
 }
 
 function normalizeContainer(raw: Partial<Holding> & { container?: string; bucket?: string; wallet?: string }): ActiveContainerClass {
-  if (raw.container === "WHITE" || raw.wallet === "WHITE") return "WHITE";
   if (raw.container === "MINT" || raw.wallet === "MINT") return "MINT";
   if (raw.container === "GREEN" || raw.bucket === "GREEN") return "GREEN";
+  if (raw.container === "WHITE" || raw.wallet === "WHITE") return "MINT";
   return "BLUE";
 }
 
@@ -109,7 +107,7 @@ function normalizeHolding(
     entryPrice: parseNumber(raw.entryPrice),
     dividendCollected: parseNumber(raw.dividendCollected),
     latestDipDate: parseString(raw.latestDipDate),
-    nextExDate: parseString((raw as Partial<Holding>).nextExDate),
+    nextExDate: parseString(raw.nextExDate),
     nextPayDate: parseString(raw.nextPayDate),
     dripAmount: parseNumber(raw.dripAmount),
     expectedIncome: parseNumber(raw.expectedIncome),
@@ -142,9 +140,7 @@ export function loadHoldings(): Holding[] {
     const raw = readRawHoldings();
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<Partial<Holding>>;
-    return parsed
-      .map((holding) => normalizeHolding(holding))
-      .filter((holding) => Boolean(holding.ticker));
+    return parsed.map((holding) => normalizeHolding(holding)).filter((holding) => Boolean(holding.ticker));
   } catch {
     return [];
   }
@@ -160,14 +156,8 @@ export function addHolding(holdings: Holding[], holding: Omit<Holding, "id">): H
   return next;
 }
 
-export function updateHolding(
-  holdings: Holding[],
-  id: string,
-  patch: Partial<Omit<Holding, "id">>,
-): Holding[] {
-  const next = holdings.map((holding) =>
-    holding.id === id ? normalizeHolding({ ...holding, ...patch }) : holding,
-  );
+export function updateHolding(holdings: Holding[], id: string, patch: Partial<Omit<Holding, "id">>): Holding[] {
+  const next = holdings.map((holding) => (holding.id === id ? normalizeHolding({ ...holding, ...patch }) : holding));
   saveHoldings(next);
   return next;
 }
@@ -182,27 +172,18 @@ export function calcCostBasis(holding: Holding): number {
   return holding.shares * holding.entryPrice;
 }
 
-export function calcCurrentValue(
-  holding: Holding,
-  currentPrice: number | null | undefined,
-): number | null {
+export function calcCurrentValue(holding: Holding, currentPrice: number | null | undefined): number | null {
   if (currentPrice == null) return null;
   return holding.shares * currentPrice;
 }
 
-export function calcUnrealizedGL(
-  holding: Holding,
-  currentPrice: number | null | undefined,
-): number | null {
+export function calcUnrealizedGL(holding: Holding, currentPrice: number | null | undefined): number | null {
   const currentValue = calcCurrentValue(holding, currentPrice);
   if (currentValue == null) return null;
   return currentValue - calcCostBasis(holding);
 }
 
-export function calcUnrealizedGLPct(
-  holding: Holding,
-  currentPrice: number | null | undefined,
-): number | null {
+export function calcUnrealizedGLPct(holding: Holding, currentPrice: number | null | undefined): number | null {
   const gl = calcUnrealizedGL(holding, currentPrice);
   const costBasis = calcCostBasis(holding);
   if (gl == null || costBasis === 0) return null;

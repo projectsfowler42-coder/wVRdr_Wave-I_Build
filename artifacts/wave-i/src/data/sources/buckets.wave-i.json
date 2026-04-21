@@ -1,1 +1,41 @@
-[{"id":"wallet-mint","class":"MINT","containerType":"wallet","label":"|M| MINT","activeWaveIScope":true,"job":"front-loaded tactical reserve","riskReward":"very low risk while parked / tactical when deployed","operatorMeaning":"immediate dip-buy leverage, not permanent full deployment","status":"active","schemaVersion":"1.0.0","recordVersion":"1.0.0"},{"id":"wallet-white","class":"WHITE","containerType":"wallet","label":"|W| WHITE","activeWaveIScope":true,"job":"stabilizer, dry powder, defensive reserve","riskReward":"lowest risk / lowest payout / maximum deployability","operatorMeaning":"cash-like safety, instant buying power, minimal drawdown","status":"active","schemaVersion":"1.0.0","recordVersion":"1.0.0"},{"id":"bucket-blue","class":"BLUE","containerType":"bucket","label":"[B] BLUE","activeWaveIScope":true,"job":"safer carry and ballast","riskReward":"low risk / modest payout / controlled downside","operatorMeaning":"stable carry, short duration, higher-quality credit, floating-rate ballast","status":"active","schemaVersion":"1.0.0","recordVersion":"1.0.0"},{"id":"bucket-green","class":"GREEN","containerType":"bucket","label":"[G] GREEN","activeWaveIScope":true,"job":"core compounding engine","riskReward":"medium risk / real income / DRiP-compatible growth","operatorMeaning":"core carry, structured reinvestment, buy-the-dip fuel","status":"active","schemaVersion":"1.0.0","recordVersion":"1.0.0"}]
+[
+  {
+    "id": "wallet-m",
+    "class": "MINT",
+    "containerType": "wallet",
+    "label": "|M| D3 WALLET",
+    "activeWaveIScope": true,
+    "job": "front-loaded D3 staging cash",
+    "riskReward": "cash staging / operator-controlled deployment",
+    "operatorMeaning": "the $5,000 bridge preload and later cash distributions; not ticker MINT",
+    "status": "active",
+    "schemaVersion": "1.0.0",
+    "recordVersion": "1.1.0"
+  },
+  {
+    "id": "bucket-blue",
+    "class": "BLUE",
+    "containerType": "bucket",
+    "label": "[B] BLUE",
+    "activeWaveIScope": true,
+    "job": "ballast / safer carry bucket",
+    "riskReward": "lower-output bridge income with controlled downside intent",
+    "operatorMeaning": "$17,500 bridge sleeve containing JAAA, FLOT, and MINT ETF",
+    "status": "active",
+    "schemaVersion": "1.0.0",
+    "recordVersion": "1.1.0"
+  },
+  {
+    "id": "bucket-green",
+    "class": "GREEN",
+    "containerType": "bucket",
+    "label": "[G] GREEN",
+    "activeWaveIScope": true,
+    "job": "income and D3 compounding bucket",
+    "riskReward": "higher-output bridge income with explicit credit and structure risk",
+    "operatorMeaning": "$32,500 bridge sleeve containing XFLT, SRLN, JBBB, and BKLN",
+    "status": "active",
+    "schemaVersion": "1.0.0",
+    "recordVersion": "1.1.0"
+  }
+]
