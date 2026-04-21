@@ -163,10 +163,10 @@ export default function WarRoom() {
       {tab === "warroom" ? (
         <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-4 md:px-6 md:py-6">
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <Stat label="Total capital" value={fmtDollar(summary.currentMarketValue ?? summary.deployedCostBasis)} detail="Market value when covered · cost basis fallback otherwise" />
-            <Stat label="Deployed" value={fmtDollar(summary.currentMarketValue ?? summary.deployedCostBasis)} detail="Best available marked position value" />
+            <Stat label="Total capital" value={fmtDollar(summary.currentMarketValue ?? summary.deployedCostBasis)} detail="Market value when quote state allows · cost basis fallback otherwise" />
+            <Stat label="Deployed" value={fmtDollar(summary.currentMarketValue ?? summary.deployedCostBasis)} detail="Marked position value with visible quote status" />
             <Stat label="Unrealized" value={fmtDollar(summary.unrealizedGL)} detail={fmtPct(summary.unrealizedGLPct)} />
-            <Stat label="Cash / reserve" value={fmtDollar(0)} detail="Secondary panels staged off live surface during hotfix" />
+            <Stat label="Cash / reserve" value={fmtDollar(0)} detail="Manual bridge excludes |W| from active runtime" />
             <Stat label="Refresh issues" value={String(refreshIssues.length)} detail={refreshIssues.length ? "See exceptions below" : "No unresolved ticker failures in last pass"} />
             <Stat label="Last refresh" value={lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} detail={lastUpdated ? "Manual on-demand snapshot" : "No refresh pass yet"} />
           </section>
@@ -222,7 +222,7 @@ export default function WarRoom() {
                       </div>
                       <div className="text-right">
                         <div className="font-semibold num text-foreground">{fmtDollar(ctx.currentPrice)}</div>
-                        <div className="text-[10px] text-muted-foreground">{ctx.snapshotAt ? "Best available snapshot" : "Awaiting coverage"}</div>
+                        <div className="text-[10px] text-muted-foreground">{ctx.snapshotAt ? "Quote-derived mark" : "Awaiting coverage"}</div>
                       </div>
                     </div>
                     <div className="mt-2 space-y-1">
