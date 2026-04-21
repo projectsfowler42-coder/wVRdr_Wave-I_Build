@@ -3,7 +3,7 @@ import { loadLocalQuote, type Quote } from "@/lib/market";
 import { type Holding, type ActiveContainerClass, deleteHolding, updateHolding, calcCostBasis, calcCurrentValue, calcUnrealizedGL, calcUnrealizedGLPct, placementFromContainer } from "@/lib/portfolio";
 import { deriveHoldingContext } from "@/lib/decision-model";
 import { getBucketScopedInstruments } from "@/lib/loadInstruments";
-import { ACTIVE_CONTAINERS, containerLabel, containerParentLabel } from "@/lib/containerModel";
+import { ACTIVE_CONTAINERS, containerLabel, containerParentLabel, instrumentDisplayLabel } from "@/lib/containerModel";
 import { fmtDollar, fmtPct, signClass } from "@/lib/utils";
 import { Pencil, Trash2, Check, X } from "lucide-react";
 
@@ -49,7 +49,7 @@ function EditRow({ holding, onSave, onCancel }: { holding: Holding; onSave: (pat
   return (
     <tr className="bg-accent/20 border-b border-border/30">
       <td className="px-2 py-2"><select value={form.container} onChange={(event)=>set('container',event.target.value)} className={inputCls}>{ACTIVE_CONTAINERS.map((container)=><option key={container} value={container}>{containerLabel(container)}</option>)}</select></td>
-      <td className="px-2 py-2"><select value={form.ticker} onChange={(event)=>set('ticker',event.target.value)} className={inputCls}>{scoped.map((instrument)=><option key={instrument.ticker} value={instrument.ticker}>{instrument.ticker}</option>)}</select></td>
+      <td className="px-2 py-2"><select value={form.ticker} onChange={(event)=>set('ticker',event.target.value)} className={inputCls} disabled={scoped.length === 0}>{scoped.length === 0 ? <option value="">No security in |M| wallet</option> : scoped.map((instrument)=><option key={instrument.ticker} value={instrument.ticker}>{instrumentDisplayLabel(instrument.ticker)}</option>)}</select></td>
       <td className="px-2 py-2"><input className={inputCls} type="date" value={form.latestDipDate} onChange={(event)=>set('latestDipDate',event.target.value)} /></td>
       <td className="px-2 py-2"><input className={inputCls} type="date" value={form.nextExDate} onChange={(event)=>set('nextExDate',event.target.value)} /></td>
       <td className="px-2 py-2"><input className={inputCls} type="date" value={form.nextPayDate} onChange={(event)=>set('nextPayDate',event.target.value)} /></td>
@@ -73,7 +73,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
 
   function save(id: string, patch: Partial<Omit<Holding,'id'>>) { onHoldingsChange(updateHolding(holdings, id, patch)); setEditingId(null); }
 
-  if (!holdings.length) return <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">No holdings yet. Add your first position above.</div>;
+  if (!holdings.length) return <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">No holdings yet. Add your first bridge position above.</div>;
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -113,7 +113,7 @@ export default function PortfolioTable({ holdings, onHoldingsChange }: Portfolio
               ) : (
                 <tr key={holding.id} className="border-b border-border/20 hover:bg-muted/10">
                   <td className="px-2 py-2.5"><div className="text-[10px] font-semibold uppercase text-foreground">{containerLabel(holding.container)}<div className="text-muted-foreground">{containerParentLabel(holding.container)}</div></div></td>
-                  <td className="px-2 py-2.5"><div className="font-bold text-foreground">{holding.ticker}</div></td>
+                  <td className="px-2 py-2.5"><div className="font-bold text-foreground">{instrumentDisplayLabel(holding.ticker)}</div></td>
                   <td className="px-2 py-2.5">{quote?.price == null ? '—' : fmtDollar(quote.price)}</td>
                   <td className="px-2 py-2.5">{fmtDollar(calcCurrentValue(holding, quote?.price))}</td>
                   <td className="px-2 py-2.5">{gl == null ? '—' : <div><div className={signClass(gl)}>{fmtDollar(gl)}</div><div className={signClass(glPct)}>{fmtPct(glPct)}</div></div>}</td>
