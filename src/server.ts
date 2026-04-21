@@ -10,12 +10,20 @@ const DATA_DIR = path.join(process.cwd(), "wave-i-data");
 const REFRESH_PATH = path.join(DATA_DIR, "latest-refresh.json");
 const HARVEST_PATH = path.join(DATA_DIR, "harvests.json");
 
+const RUNTIME_RULES = Object.freeze({
+  selectedTickersOnly: true,
+  timedRefresh: false,
+  polling: false,
+  autonomousRefresh: false,
+  autonomousExecution: false,
+  secretFetchDuringHarvest: false,
+});
+
 type Container = "|M|" | "[B]" | "[G]";
-type TruthClass = "RAW_MARKET" | "RAW_USER" | "RAW_OFFICIAL" | "TRANSFORMED" | "STALE" | "DEGRADED" | "FAILED" | "UNRESOLVED" | "QUARANTINED";
-type RowStatus = "VALID" | "VALID_WITH_WATCH" | "WATCH" | "DEGRADED" | "FAILED" | "UNRESOLVED";
-type InstrumentType = "ETF" | "CEF" | "BDC" | "REIT" | "Stock" | "Cash";
-type SelectedYieldType = "SEC_YIELD" | "DISTRIBUTION_YIELD" | "TTM_DISTRIBUTION" | "OPERATOR_SELECTED" | "UNRESOLVED";
-type DistributionTrend = "RISING" | "STABLE" | "FALLING" | "CUT_DETECTED" | "UNKNOWN";
+type TruthClass = "RAW_MARKET" | "RAW_USER" | "RAW_OFFICIAL" | "STALE" | "DEGRADED" | "FAILED" | "UNRESOLVED";
+type RowStatus = "VALID" | "WATCH" | "UNRESOLVED" | "FAILED";
+type InstrumentType = "ETF" | "CEF";
+type DistributionTrend = "CUT_DETECTED" | "UNKNOWN";
 
 type Instrument = {
   ticker: string;
@@ -24,7 +32,6 @@ type Instrument = {
   allowedContainers: Container[];
   instrumentType: InstrumentType;
   role: string;
-  expenseRatioPct: number | null;
   distributionFrequency: "monthly" | "quarterly" | "unknown";
   requiresNavCheck: boolean;
   requiresDistributionCheck: boolean;
@@ -61,7 +68,7 @@ type IncomeBlock = {
   distributionYieldPct: number | null;
   trailing12mDistributionYieldPct: number | null;
   selectedYieldPct: number | null;
-  selectedYieldType: SelectedYieldType;
+  selectedYieldType: "DISTRIBUTION_YIELD" | "UNRESOLVED";
   lastDistribution: number | null;
   nextExDate: string | null;
   nextPayDate: string | null;
@@ -148,14 +155,7 @@ type DataRefreshResponse = {
   status: "VALID" | "DEGRADED" | "FAILED";
   rows: RefreshedInstrumentRow[];
   errors: RefreshError[];
-  rules: {
-    selectedTickersOnly: true;
-    timedRefresh: false;
-    polling: false;
-    autonomousRefresh: false;
-    autonomousExecution: false;
-    secretFetchDuringHarvest: false;
-  };
+  rules: typeof RUNTIME_RULES;
 };
 
 type HarvestSnapshot = {
@@ -168,15 +168,15 @@ type HarvestSnapshot = {
 };
 
 const INSTRUMENTS: Instrument[] = [
-  { ticker: "MINT", name: "MINT ETF - PIMCO Enhanced Short Maturity Active ETF", issuer: "PIMCO", allowedContainers: ["|M|", "[B]"], instrumentType: "ETF", role: "short-duration cash proxy / bridge staging option", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "SGOV", name: "iShares 0-3 Month Treasury Bond ETF", issuer: "BlackRock iShares", allowedContainers: ["|M|", "[B]"], instrumentType: "ETF", role: "near-cash Treasury reserve", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "BIL", name: "SPDR Bloomberg 1-3 Month T-Bill ETF", issuer: "State Street SPDR", allowedContainers: ["|M|", "[B]"], instrumentType: "ETF", role: "near-cash Treasury reserve", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "JAAA", name: "Janus Henderson AAA CLO ETF", issuer: "Janus Henderson", allowedContainers: ["[B]"], instrumentType: "ETF", role: "Blue AAA CLO anchor", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "FLOT", name: "iShares Floating Rate Bond ETF", issuer: "BlackRock iShares", allowedContainers: ["[B]"], instrumentType: "ETF", role: "Blue investment-grade floater", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "XFLT", name: "XAI Octagon Floating Rate & Alternative Income Trust", issuer: "XAI Octagon", allowedContainers: ["[G]"], instrumentType: "CEF", role: "Green bridge-mode high-output accelerator", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "SRLN", name: "State Street Blackstone Senior Loan ETF", issuer: "State Street", allowedContainers: ["[G]"], instrumentType: "ETF", role: "Green senior-loan ballast", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "JBBB", name: "Janus Henderson B-BBB CLO ETF", issuer: "Janus Henderson", allowedContainers: ["[G]"], instrumentType: "ETF", role: "Green CLO debt income", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
-  { ticker: "BKLN", name: "Invesco Senior Loan ETF", issuer: "Invesco", allowedContainers: ["[G]"], instrumentType: "ETF", role: "Green senior-loan anchor", expenseRatioPct: null, distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "MINT", name: "MINT ETF - PIMCO Enhanced Short Maturity Active ETF", issuer: "PIMCO", allowedContainers: ["|M|", "[B]"], instrumentType: "ETF", role: "short-duration cash proxy / bridge staging option", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "SGOV", name: "iShares 0-3 Month Treasury Bond ETF", issuer: "BlackRock iShares", allowedContainers: ["|M|", "[B]"], instrumentType: "ETF", role: "near-cash Treasury reserve", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "BIL", name: "SPDR Bloomberg 1-3 Month T-Bill ETF", issuer: "State Street SPDR", allowedContainers: ["|M|", "[B]"], instrumentType: "ETF", role: "near-cash Treasury reserve", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "JAAA", name: "Janus Henderson AAA CLO ETF", issuer: "Janus Henderson", allowedContainers: ["[B]"], instrumentType: "ETF", role: "Blue AAA CLO anchor", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "FLOT", name: "iShares Floating Rate Bond ETF", issuer: "BlackRock iShares", allowedContainers: ["[B]"], instrumentType: "ETF", role: "Blue investment-grade floater", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "XFLT", name: "XAI Octagon Floating Rate & Alternative Income Trust", issuer: "XAI Octagon", allowedContainers: ["[G]"], instrumentType: "CEF", role: "Green bridge-mode high-output accelerator", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "SRLN", name: "State Street Blackstone Senior Loan ETF", issuer: "State Street", allowedContainers: ["[G]"], instrumentType: "ETF", role: "Green senior-loan ballast", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "JBBB", name: "Janus Henderson B-BBB CLO ETF", issuer: "Janus Henderson", allowedContainers: ["[G]"], instrumentType: "ETF", role: "Green CLO debt income", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
+  { ticker: "BKLN", name: "Invesco Senior Loan ETF", issuer: "Invesco", allowedContainers: ["[G]"], instrumentType: "ETF", role: "Green senior-loan anchor", distributionFrequency: "monthly", requiresNavCheck: true, requiresDistributionCheck: true, active: true },
 ];
 
 const INSTRUMENT_BY_TICKER = new Map(INSTRUMENTS.map((instrument) => [instrument.ticker, instrument]));
@@ -225,15 +225,12 @@ function finite(value: unknown): number | null { return typeof value === "number
 function round(value: number | null, digits = 4): number | null { return value == null || !Number.isFinite(value) ? null : Math.round(value * 10 ** digits) / 10 ** digits; }
 function annualIncomePer1000(yieldPct: number | null): number | null { return yieldPct == null ? null : round(1000 * yieldPct / 100, 4); }
 function monthlyIncomePer1000(yieldPct: number | null): number | null { const annual = annualIncomePer1000(yieldPct); return annual == null ? null : round(annual / 12, 4); }
-function pct(numerator: number | null, denominator: number | null): number | null { return numerator == null || denominator == null || denominator === 0 ? null : round((numerator / denominator) * 100, 6); }
-
 function returnPct(closes: number[], sessionsBack: number): number | null {
   if (closes.length <= sessionsBack) return null;
   const start = closes[closes.length - 1 - sessionsBack];
   const end = closes[closes.length - 1];
   return start > 0 ? round(((end - start) / start) * 100, 6) : null;
 }
-
 function maxDrawdownPct(closes: number[]): number | null {
   if (closes.length < 2) return null;
   let peak = closes[0];
@@ -244,7 +241,6 @@ function maxDrawdownPct(closes: number[]): number | null {
   }
   return round(maxDrawdown * 100, 6);
 }
-
 function volatilityPct(closes: number[], lookback: number, downsideOnly: boolean): number | null {
   if (closes.length < lookback + 1) return null;
   const returns: number[] = [];
@@ -302,9 +298,7 @@ async function fetchQuoteAndRisk(ticker: string): Promise<{ quote: QuoteBlock; r
 
 async function fetchIncomeFacts(ticker: string, instrument: Instrument): Promise<IncomeBlock> {
   const hint = INCOME_HINTS[ticker];
-  if (!hint) {
-    return { secYieldPct: null, distributionYieldPct: null, trailing12mDistributionYieldPct: null, selectedYieldPct: null, selectedYieldType: "UNRESOLVED", lastDistribution: null, nextExDate: null, nextPayDate: null, distributionFrequency: "unknown", distributionTrend: "UNKNOWN", observedAt: null, source: "income adapter not wired", truthClass: "UNRESOLVED", stale: false, degraded: true, failed: false };
-  }
+  if (!hint) return { secYieldPct: null, distributionYieldPct: null, trailing12mDistributionYieldPct: null, selectedYieldPct: null, selectedYieldType: "UNRESOLVED", lastDistribution: null, nextExDate: null, nextPayDate: null, distributionFrequency: "unknown", distributionTrend: "UNKNOWN", observedAt: null, source: "income adapter not wired", truthClass: "UNRESOLVED", stale: false, degraded: true, failed: false };
   return { secYieldPct: null, distributionYieldPct: hint.selectedYieldPct, trailing12mDistributionYieldPct: null, selectedYieldPct: hint.selectedYieldPct, selectedYieldType: "DISTRIBUTION_YIELD", lastDistribution: hint.lastDistribution, nextExDate: hint.nextExDate, nextPayDate: hint.nextPayDate, distributionFrequency: instrument.distributionFrequency, distributionTrend: hint.trend, observedAt: null, source: "static paper context only; issuer refresh required before execution", truthClass: "UNRESOLVED", stale: true, degraded: true, failed: false };
 }
 
@@ -315,7 +309,7 @@ async function fetchNavFacts(ticker: string, quote: QuoteBlock, income: IncomeBl
 }
 
 function buildComparable(instrument: Instrument, income: IncomeBlock, risk: Pick<ComparableNumbers, "return1mPct" | "return3mPct" | "return12mPct" | "maxDrawdown1yPct" | "volatility90dPct" | "downsideDeviation90dPct">): ComparableNumbers {
-  return { expenseRatioPct: instrument.expenseRatioPct, ...risk, monthlyIncomePer1000: monthlyIncomePer1000(income.selectedYieldPct), annualIncomePer1000: annualIncomePer1000(income.selectedYieldPct) };
+  return { expenseRatioPct: null, ...risk, monthlyIncomePer1000: monthlyIncomePer1000(income.selectedYieldPct), annualIncomePer1000: annualIncomePer1000(income.selectedYieldPct) };
 }
 
 function buildPosition(position: PositionInput | undefined, quote: QuoteBlock, income: IncomeBlock, totalBridgeCapital: number | undefined): PositionBlock {
@@ -395,14 +389,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-app.get("/api/wave-i/health", (_req, res) => res.json({ status: "OK", checkedAt: nowIso(), mode: "OPERATOR_TRIGGERED_MINIMAL_LIVE_BACKEND", activeContainers: ["|M|", "[B]", "[G]"], excludedContainers: ["|W|"], rules: { selectedTickersOnly: true, timedRefresh: false, polling: false, autonomousRefresh: false, autonomousExecution: false, secretFetchDuringHarvest: false }, storage: { dataDir: DATA_DIR, latestRefreshExists: Boolean(loadLatest()), harvestCount: loadHarvests().length } }));
+app.get("/api/wave-i/health", (_req, res) => res.json({ status: "OK", checkedAt: nowIso(), mode: "OPERATOR_TRIGGERED_MINIMAL_LIVE_BACKEND", activeContainers: ["|M|", "[B]", "[G]"], excludedContainers: ["|W|"], rules: RUNTIME_RULES, storage: { dataDir: DATA_DIR, latestRefreshExists: Boolean(loadLatest()), harvestCount: loadHarvests().length } }));
 app.get("/api/wave-i/instruments", (_req, res) => res.json({ status: "VALID", instruments: INSTRUMENTS, namingRule: { MINT: "MINT ETF ticker", "|M|": "D3 staging wallet", bareMint: "forbidden in system labels" } }));
 app.get("/api/wave-i/latest-refresh", (_req, res) => { const latest = loadLatest(); if (!latest) res.status(404).json({ status: "FAILED", message: "No refresh has been run yet. Press [Data Refresh] first." }); else res.json(latest); });
 app.get("/api/wave-i/harvests", (_req, res) => res.json({ status: "VALID", harvests: loadHarvests() }));
 
 app.post("/api/wave-i/data-refresh", async (req, res) => {
   const parsed = DataRefreshRequestSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ refreshRunId: uuid("refresh_failed"), requestedAt: nowIso(), refreshedAt: nowIso(), status: "FAILED", rows: [], errors: [{ ticker: "(request)", container: "|M|", errorType: "BAD_SELECTION", message: parsed.error.message }], rules: { selectedTickersOnly: true, timedRefresh: false, polling: false, autonomousRefresh: false, autonomousExecution: false, secretFetchDuringHarvest: false } } satisfies DataRefreshResponse);
+  if (!parsed.success) return res.status(400).json({ refreshRunId: uuid("refresh_failed"), requestedAt: nowIso(), refreshedAt: nowIso(), status: "FAILED", rows: [], errors: [{ ticker: "(request)", container: "|M|", errorType: "BAD_SELECTION", message: parsed.error.message }], rules: RUNTIME_RULES } satisfies DataRefreshResponse);
   const rows: RefreshedInstrumentRow[] = [];
   const errors: RefreshError[] = [];
   const unique = new Map<string, { container: Container; ticker: string; position?: PositionInput }>();
@@ -412,7 +406,7 @@ app.post("/api/wave-i/data-refresh", async (req, res) => {
     if (result.row) rows.push(result.row);
     if (result.error) errors.push(result.error);
   }
-  const response: DataRefreshResponse = { refreshRunId: uuid("refresh"), requestedAt: parsed.data.requestedAt ?? nowIso(), refreshedAt: nowIso(), status: overallStatus(rows, errors), rows, errors, rules: { selectedTickersOnly: true, timedRefresh: false, polling: false, autonomousRefresh: false, autonomousExecution: false, secretFetchDuringHarvest: false } };
+  const response: DataRefreshResponse = { refreshRunId: uuid("refresh"), requestedAt: parsed.data.requestedAt ?? nowIso(), refreshedAt: nowIso(), status: overallStatus(rows, errors), rows, errors, rules: RUNTIME_RULES };
   saveLatest(response);
   return res.json(response);
 });
@@ -423,8 +417,8 @@ app.post("/api/wave-i/harvest", (req, res) => {
   const latest = loadLatest();
   if (!latest) return res.status(409).json({ status: "FAILED", message: "No latest refresh exists. Press [Data Refresh] before [Harvest Data]." });
   if (latest.refreshRunId !== parsed.data.refreshRunId) return res.status(409).json({ status: "FAILED", message: "Harvest blocked. refreshRunId does not match latest refreshed state.", latestRefreshRunId: latest.refreshRunId, requestedRefreshRunId: parsed.data.refreshRunId });
-  const failedRows = latest.rows.filter((row) => row.status === "FAILED").length;
-  if (failedRows > 0) return res.status(409).json({ status: "FAILED", message: "Harvest blocked because one or more rows failed required checks.", failedRows });
+  const blockedRows = latest.rows.filter((row) => row.status === "FAILED" || row.requiredChecksPassed === false);
+  if (latest.status === "FAILED" || blockedRows.length > 0) return res.status(409).json({ status: "FAILED", message: "Harvest blocked because one or more rows failed required checks.", blockedRows: blockedRows.length, failedRows: latest.rows.filter((row) => row.status === "FAILED").length, unresolvedRows: latest.rows.filter((row) => row.status === "UNRESOLVED").length });
   const snapshot: HarvestSnapshot = { harvestRunId: uuid("harvest"), sourceRefreshRunId: latest.refreshRunId, harvestedAt: nowIso(), status: latest.status === "VALID" ? "VALID" : "DEGRADED", rows: latest.rows, operatorNote: parsed.data.operatorNote };
   const harvests = loadHarvests();
   harvests.push(snapshot);
