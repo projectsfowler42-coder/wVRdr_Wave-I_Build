@@ -32,11 +32,10 @@ export default function Header({
       <div className="flex items-center gap-3">
         <div>
           <span className="text-sm font-bold tracking-tight text-foreground">Wave-I</span>
-          <span className="ml-2 text-xs text-muted-foreground">Control Panel</span>
+          <span className="ml-2 text-xs text-muted-foreground">Manual Bridge</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|W| White</span>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|M| Mint</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">|M| MINT ETF wallet</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[B] Blue</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">[G] Green</span>
         </div>
