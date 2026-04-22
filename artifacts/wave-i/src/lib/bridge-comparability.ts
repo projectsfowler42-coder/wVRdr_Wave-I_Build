@@ -4,6 +4,30 @@ import type { Quote } from "@/lib/market";
 export type BridgeRowStatus = "comparable" | "blocked" | "degraded" | "watch" | "unresolved";
 export type BridgeMetricGroup = "identity" | "market" | "income" | "nav" | "risk" | "position" | "truth" | "xflt";
 
+type BridgeQuote = Quote & Partial<{
+  bid: number | null;
+  ask: number | null;
+  spreadPct: number | null;
+  selectedYieldPct: number | null;
+  yieldType: string | null;
+  lastDistribution: number | null;
+  monthlyIncomePer1000: number | null;
+  annualIncomePer1000: number | null;
+  nav: number | null;
+  premiumDiscountPct: number | null;
+  navDistributionRatePct: number | null;
+  priceDistributionRatePct: number | null;
+  leveragePct: number | null;
+  distributionTrend: "stable" | "cut" | "raised" | "unresolved" | null;
+  liquidityStatus: "acceptable" | "watch" | "poor" | "unresolved" | null;
+  oneMonthReturnPct: number | null;
+  threeMonthReturnPct: number | null;
+  twelveMonthReturnPct: number | null;
+  oneYearMaxDrawdownPct: number | null;
+  ninetyDayVolatilityPct: number | null;
+  downsideDeviationPct: number | null;
+}>;
+
 export interface BridgeGateResult {
   status: BridgeRowStatus;
   missingGroups: BridgeMetricGroup[];
@@ -31,13 +55,14 @@ export function evaluateBridgeGate(args: {
 }): BridgeGateResult {
   const ticker = args.ticker.toUpperCase();
   const line = bridgeLineForTicker(ticker);
-  const quote = args.quote ?? null;
+  const quote = (args.quote ?? null) as BridgeQuote | null;
   const missing = new Set<BridgeMetricGroup>();
   const reasons: string[] = [];
 
   if (!line) addMissing(missing, reasons, "identity", "Ticker is outside the Pre-Wave-I bridge instrument set.");
   if (!quote || !hasNumber(quote.price)) addMissing(missing, reasons, "market", "Current price is missing; row cannot be compared.");
   if (!quote || !hasNumber(quote.previousClose) || quote.changePct == null) addMissing(missing, reasons, "market", "Previous close or change % is missing.");
+  if (!quote || !hasNumber(quote.bid) || !hasNumber(quote.ask) || !hasNumber(quote.spreadPct)) addMissing(missing, reasons, "market", "Bid, ask, or spread % is missing.");
   if (!quote || !quote.observedAt) addMissing(missing, reasons, "truth", "Observed timestamp is missing.");
   if (!quote || quote.truthClass === "FAILED") addMissing(missing, reasons, "truth", "Truth class is failed or absent.");
   if (!quote || !hasNumber(quote.selectedYieldPct) || !quote.yieldType || !hasNumber(quote.lastDistribution)) addMissing(missing, reasons, "income", "Yield type, selected yield %, or last distribution is missing.");
