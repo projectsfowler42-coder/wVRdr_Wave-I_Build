@@ -30,6 +30,13 @@ function emptyContainerSummary() {
   };
 }
 
+function createEmptyContainerRecord(): CapitalSummary["byContainer"] {
+  return ACTIVE_CONTAINERS.reduce((acc, container) => {
+    acc[container] = emptyContainerSummary();
+    return acc;
+  }, {} as CapitalSummary["byContainer"]);
+}
+
 export function createEmptyCapitalSummary(): CapitalSummary {
   return {
     holdingsCount: 0,
@@ -40,12 +47,7 @@ export function createEmptyCapitalSummary(): CapitalSummary {
     dividendCollected: 0,
     expectedAnnualIncome: 0,
     dripBudget: 0,
-    byContainer: {
-      WHITE: emptyContainerSummary(),
-      MINT: emptyContainerSummary(),
-      BLUE: emptyContainerSummary(),
-      GREEN: emptyContainerSummary(),
-    },
+    byContainer: createEmptyContainerRecord(),
   };
 }
 
