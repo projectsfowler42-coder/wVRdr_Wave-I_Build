@@ -10,7 +10,8 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test:wave-i": "pnpm --filter @workspace/wave-i run test",
     "release:validate": "node scripts/validate-release.mjs",
-    "start:wave-i-backend": "ts-node src/server.ts"
+    "start:wave-i-backend": "ts-node src/server.ts",
+    "smoke:wave-i-backend": "node scripts/smoke-wave-i-backend.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
