@@ -1,16 +1,16 @@
-import type { HarvestRunState } from "@/block2/truth/canonical-types";
 import type { Quote, QuoteRefreshStatus } from "@/lib/market";
 import type { Holding } from "@/lib/portfolio";
 
 const STALE_QUOTE_MS = 24 * 60 * 60 * 1000;
 
 type Severity = "P0" | "P1" | "P2" | "P3";
+type RefreshRunState = "idle" | "running" | "completed";
 
 interface ExceptionSeverityLadderProps {
   holdings: Holding[];
   quotesByTicker: Record<string, Quote | undefined>;
   refreshStatuses: QuoteRefreshStatus[];
-  harvestState: HarvestRunState;
+  refreshState: RefreshRunState;
   nowMs: number;
 }
 
@@ -48,7 +48,7 @@ export default function ExceptionSeverityLadder({
   holdings,
   quotesByTicker,
   refreshStatuses,
-  harvestState,
+  refreshState,
   nowMs,
 }: ExceptionSeverityLadderProps) {
   const uniqueHoldingTickers = [...new Set(holdings.map((holding) => holding.ticker.toUpperCase()))];
@@ -82,7 +82,7 @@ export default function ExceptionSeverityLadder({
     {
       severity: "P3",
       label: "Informational",
-      count: harvestState === "idle" || holdings.length === 0 ? 1 : 0,
+      count: refreshState === "idle" || holdings.length === 0 ? 1 : 0,
       detail: "No active exception, or no holdings exist yet.",
       action: "Add positions or run refresh to generate stronger telemetry.",
     },
