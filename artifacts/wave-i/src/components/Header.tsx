@@ -1,15 +1,15 @@
 import { Briefcase, RadioTower } from "lucide-react";
-import { HarvestButton } from "@/block2/ui/HarvestButton";
-import type { HarvestRunState } from "@/block2/truth/canonical-types";
+import DataRefreshButton from "@/components/DataRefreshButton";
 
 type Tab = "warroom" | "portfolio";
+type RefreshRunState = "idle" | "running" | "completed";
 
 interface HeaderProps {
   tab: Tab;
   onTabChange: (t: Tab) => void;
-  onHarvest: () => void;
-  harvestState: HarvestRunState;
-  harvestSummary?: string | null;
+  onDataRefresh: () => void;
+  refreshState: RefreshRunState;
+  refreshSummary?: string | null;
   lastUpdated: number | null;
   holdingsCount: number;
 }
@@ -17,9 +17,9 @@ interface HeaderProps {
 export default function Header({
   tab,
   onTabChange,
-  onHarvest,
-  harvestState,
-  harvestSummary,
+  onDataRefresh,
+  refreshState,
+  refreshSummary,
   lastUpdated,
   holdingsCount,
 }: HeaderProps) {
@@ -79,12 +79,12 @@ export default function Header({
             {ts ? `Last refresh ${ts}` : "No manual refresh yet"}
           </span>
           <span className="text-[10px] text-muted-foreground num">
-            {harvestState === "running"
+            {refreshState === "running"
               ? "Refresh pass in progress…"
-              : harvestSummary ?? "One click = one fetch pass"}
+              : refreshSummary ?? "One click = one fetch pass"}
           </span>
         </div>
-        <HarvestButton state={harvestState} onClick={onHarvest} />
+        <DataRefreshButton state={refreshState} onClick={onDataRefresh} />
       </div>
     </header>
   );

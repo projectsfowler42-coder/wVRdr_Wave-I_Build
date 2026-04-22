@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import type { HarvestRunState } from "@/block2/truth/canonical-types";
 import Header from "@/components/Header";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
@@ -14,8 +13,9 @@ import { loadHoldings, type Holding } from "@/lib/portfolio";
 import { fmt, fmtDollar, fmtPct } from "@/lib/utils";
 
 type Tab = "warroom" | "portfolio";
+type RefreshRunState = "idle" | "running" | "completed";
 
-type LocalHarvestReport = {
+type LocalRefreshReport = {
   updated: number;
   failed: number;
   statuses: QuoteRefreshStatus[];
@@ -62,8 +62,8 @@ function timeoutStatus(tickers: string[]): QuoteRefreshStatus[] {
 export default function WarRoom() {
   const [tab, setTab] = useState<Tab>("warroom");
   const [holdings, setHoldings] = useState<Holding[]>(() => loadHoldings());
-  const [harvestState, setHarvestState] = useState<HarvestRunState>("idle");
-  const [harvestReport, setHarvestReport] = useState<LocalHarvestReport | null>(null);
+  const [refreshState, setRefreshState] = useState<RefreshRunState>("idle");
+  const [refreshReport, setRefreshReport] = useState<LocalRefreshReport | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [quoteEpoch, setQuoteEpoch] = useState(0);
 
@@ -82,12 +82,12 @@ export default function WarRoom() {
     [holdings, quotesByTicker],
   );
 
-  const refreshIssues = harvestReport?.statuses.filter((status) => status.status !== "refreshed") ?? [];
+  const refreshIssues = refreshReport?.statuses.filter((status) => status.status !== "refreshed") ?? [];
   const coveredHoldings = holdings.filter((holding) => Boolean(quotesByTicker[holding.ticker])).length;
   const quoteCoveragePct = holdings.length > 0 ? Math.round((coveredHoldings / holdings.length) * 100) : 0;
   const nowMs = lastUpdated ?? Date.now();
   const readinessState =
-    harvestState === "running"
+    refreshState === "running"
       ? "refreshing"
       : refreshIssues.length > 0
         ? "degraded"
@@ -106,15 +106,15 @@ export default function WarRoom() {
           : readinessState === "refreshing"
             ? "Refresh is currently inside the guarded execution window."
             : "Add positions before relying on capital telemetry.";
-  const harvestSummary = harvestReport?.finishedAt
-    ? harvestReport.failed > 0
-      ? `refresh finished · ${harvestReport.updated} updated · ${harvestReport.failed} unresolved`
-      : `refresh finished · ${harvestReport.updated} updated`
+  const refreshSummary = refreshReport?.finishedAt
+    ? refreshReport.failed > 0
+      ? `refresh finished · ${refreshReport.updated} updated · ${refreshReport.failed} unresolved`
+      : `refresh finished · ${refreshReport.updated} updated`
     : null;
 
-  async function handleHarvest() {
-    if (harvestState === "running") return;
-    setHarvestState("running");
+  async function handleDataRefresh() {
+    if (refreshState === "running") return;
+    setRefreshState("running");
 
     const tickers = [...new Set([
       ...listWaveIInstruments().map((instrument) => instrument.ticker),
@@ -131,7 +131,7 @@ export default function WarRoom() {
 
       const now = Date.now();
       setLastUpdated(now);
-      setHarvestReport({
+      setRefreshReport({
         updated: result.statuses.filter((status) => status.status === "refreshed").length,
         failed: result.failed.length,
         statuses: result.statuses,
@@ -141,10 +141,10 @@ export default function WarRoom() {
     } catch (error) {
       const now = Date.now();
       setLastUpdated(now);
-      setHarvestReport({ updated: 0, failed: 1, statuses: [], finishedAt: new Date(now).toISOString() });
+      setRefreshReport({ updated: 0, failed: 1, statuses: [], finishedAt: new Date(now).toISOString() });
       console.error("Wave-I refresh failed", error);
     } finally {
-      setHarvestState("completed");
+      setRefreshState("completed");
     }
   }
 
@@ -153,9 +153,9 @@ export default function WarRoom() {
       <Header
         tab={tab}
         onTabChange={setTab}
-        onHarvest={handleHarvest}
-        harvestState={harvestState}
-        harvestSummary={harvestSummary}
+        onDataRefresh={handleDataRefresh}
+        refreshState={refreshState}
+        refreshSummary={refreshSummary}
         lastUpdated={lastUpdated}
         holdingsCount={holdings.length}
       />
@@ -180,7 +180,7 @@ export default function WarRoom() {
               <span className="text-[11px] text-muted-foreground md:text-right">{readinessDetail}</span>
             </div>
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <ReadinessMetric label="Refresh state" value={harvestState} detail="Guarded manual refresh loop" />
+              <ReadinessMetric label="Refresh state" value={refreshState} detail="Guarded manual refresh loop" />
               <ReadinessMetric label="Quote coverage" value={`${coveredHoldings}/${holdings.length}`} detail={`${quoteCoveragePct}% of tracked holdings covered`} />
               <ReadinessMetric label="Exceptions" value={String(refreshIssues.length)} detail="Unresolved ticker refresh statuses" />
               <ReadinessMetric label="Telemetry cards" value={String(contexts.length)} detail="Position contexts computed this render" />
@@ -190,15 +190,15 @@ export default function WarRoom() {
           <ExceptionSeverityLadder
             holdings={holdings}
             quotesByTicker={quotesByTicker}
-            refreshStatuses={harvestReport?.statuses ?? []}
-            harvestState={harvestState}
+            refreshStatuses={refreshReport?.statuses ?? []}
+            refreshState={refreshState}
             nowMs={nowMs}
           />
 
           <DataQualityLedger
             holdings={holdings}
             quotesByTicker={quotesByTicker}
-            refreshStatuses={harvestReport?.statuses ?? []}
+            refreshStatuses={refreshReport?.statuses ?? []}
             nowMs={nowMs}
           />
 
