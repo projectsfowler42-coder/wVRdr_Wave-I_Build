@@ -1,5 +1,11 @@
 import type { Holding } from "@/lib/portfolio";
 import type { Quote } from "@/lib/market";
+import {
+  blockedQuoteReason,
+  classifyQuoteForCalculation,
+  quoteAllowsMath,
+  type QuoteCalculationStatus,
+} from "@/lib/quote-quality";
 
 export type DecisionAction = "DRIP" | "HOLD" | "ADD" | "TRIM" | "ROTATE" | "WAIT" | "NOTE";
 export type TriggerState =
@@ -36,6 +42,10 @@ export interface HoldingContext {
   triggerState: TriggerState;
   pressureState: PressureState;
   snapshotAt: string | null;
+  calculationStatus: QuoteCalculationStatus;
+  blockedReason?: string;
+  quoteConnectionStatus?: Quote["connectionStatus"];
+  quoteTruthClass?: Quote["truthClass"];
 }
 
 function pctDistance(current: number | null, reference: number | null): number | null {
@@ -93,7 +103,8 @@ export function deriveHoldingContext(args: {
 }): HoldingContext {
   const { holding, quote } = args;
   const today = args.today ?? new Date();
-  const currentPrice = quote?.price ?? null;
+  const calculationStatus = classifyQuoteForCalculation(quote);
+  const currentPrice = quoteAllowsMath(quote) ? quote?.price ?? null : null;
   const costBasis = holding.shares * holding.entryPrice;
   const currentValue = currentPrice == null ? null : holding.shares * currentPrice;
   const unrealizedGL = currentValue == null ? null : currentValue - costBasis;
@@ -135,5 +146,9 @@ export function deriveHoldingContext(args: {
       typeof quote?.timestamp === "number" && Number.isFinite(quote.timestamp) && quote.timestamp > 0
         ? new Date(quote.timestamp).toISOString()
         : null,
+    calculationStatus,
+    blockedReason: calculationStatus === "BLOCKED" ? blockedQuoteReason(quote) : undefined,
+    quoteConnectionStatus: quote?.connectionStatus,
+    quoteTruthClass: quote?.truthClass,
   };
 }
