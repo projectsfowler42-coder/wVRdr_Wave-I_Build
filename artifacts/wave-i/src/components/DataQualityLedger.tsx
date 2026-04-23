@@ -3,7 +3,7 @@ import type { Holding } from "@/lib/portfolio";
 
 const STALE_QUOTE_MS = 24 * 60 * 60 * 1000;
 
-type QualityState = "fresh" | "stale" | "missing" | "failed";
+type QualityState = "fresh" | "degraded" | "stale" | "missing" | "failed";
 
 interface DataQualityLedgerProps {
   holdings: Holding[];
@@ -17,9 +17,16 @@ function classifyQuality(
   status: QuoteRefreshStatus | undefined,
   nowMs: number,
 ): QualityState {
-  if (status?.status === "failed") return "failed";
+  if (status?.connectionStatus === "FAILED" || quote?.connectionStatus === "FAILED" || quote?.truthClass === "FAILED") {
+    return "failed";
+  }
   if (!quote || quote.price == null || quote.timestamp <= 0) return "missing";
-  if (nowMs - quote.timestamp > STALE_QUOTE_MS) return "stale";
+  if (status?.connectionStatus === "DEGRADED" || quote.connectionStatus === "DEGRADED" || quote.truthClass === "UNRESOLVED") {
+    return "degraded";
+  }
+  if (status?.connectionStatus === "STALE" || quote.connectionStatus === "STALE" || nowMs - quote.timestamp > STALE_QUOTE_MS) {
+    return "stale";
+  }
   return "fresh";
 }
 
@@ -35,6 +42,8 @@ function stateTone(state: QualityState): string {
   switch (state) {
     case "fresh":
       return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "degraded":
+      return "border-orange-200 bg-orange-50 text-orange-800";
     case "stale":
       return "border-amber-200 bg-amber-50 text-amber-800";
     case "failed":
@@ -61,9 +70,17 @@ export default function DataQualityLedger({
       ticker,
       container: holding.container,
       quality,
-      source: status?.source ?? "local-cache",
+      source: quote?.source ?? status?.source ?? "none",
       age: formatAge(quote?.timestamp, nowMs),
-      reason: status?.reason ?? (quote?.price == null ? "No cached quote price" : "Cached quote available"),
+      reason:
+        status?.reason ??
+        (quality === "failed"
+          ? "Quote failed and is blocked from deterministic math"
+          : quality === "degraded"
+            ? "Quote is available but defensibility is degraded"
+            : quote?.price == null
+              ? "No cached quote price"
+              : "Quote available for current ledger state"),
     };
   });
 
@@ -72,7 +89,7 @@ export default function DataQualityLedger({
       acc[row.quality] += 1;
       return acc;
     },
-    { fresh: 0, stale: 0, missing: 0, failed: 0 },
+    { fresh: 0, degraded: 0, stale: 0, missing: 0, failed: 0 },
   );
 
   return (
@@ -81,11 +98,11 @@ export default function DataQualityLedger({
         <div>
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Data-quality ledger</h2>
           <div className="mt-1 text-sm font-semibold text-foreground">
-            {counts.fresh} fresh · {counts.stale} stale · {counts.missing} missing · {counts.failed} failed
+            {counts.fresh} fresh · {counts.degraded} degraded · {counts.stale} stale · {counts.missing} missing · {counts.failed} failed
           </div>
         </div>
         <span className="text-[11px] text-muted-foreground md:text-right">
-          Quote freshness gate: 24h. Failed refreshes override cached comfort.
+          Failed quotes are blocked from deterministic math. Degraded and stale quotes remain visible but carry downgraded confidence.
         </span>
       </div>
 
