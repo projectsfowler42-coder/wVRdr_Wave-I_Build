@@ -193,7 +193,7 @@ func validateTruthSpine(root string) error {
 		}
 
 		ext := filepath.Ext(path)
-		if ext != ".ts" && ext != ".kt" {
+		if ext != ".ts" && ext != ".tsx" && ext != ".kt" {
 			return nil
 		}
 
@@ -203,15 +203,27 @@ func validateTruthSpine(root string) error {
 		}
 
 		content := strings.ToLower(string(bytes))
+		isWaveIUI := strings.HasPrefix(filepath.ToSlash(path), "artifacts/wave-i/src/")
 		hasLiveTruth := strings.Contains(content, "truthclass.live") ||
 			strings.Contains(content, "truthclass: 'live'") ||
 			strings.Contains(content, "truthclass: \"live\"") ||
 			strings.Contains(content, "truthclass = truthclass.live") ||
 			strings.Contains(content, "truthclass.live")
 		hasFakeSource := strings.Contains(content, "mock") || strings.Contains(content, "sim")
-
 		if hasLiveTruth && hasFakeSource {
-			violations = append(violations, path)
+			violations = append(violations, fmt.Sprintf("%s: fake confidence detected", path))
+		}
+
+		if isWaveIUI {
+			blockedRails := []string{"@atlaskit/", "atlassian", "jira", "jira-client", "@jira/"}
+			for _, blocked := range blockedRails {
+				if strings.Contains(content, blocked) {
+					violations = append(violations, fmt.Sprintf("%s: blocked Atlassian/Jira dependency marker %q", path, blocked))
+				}
+			}
+			if strings.Contains(content, "hardcodedthreshold") || strings.Contains(content, "hard-coded threshold") || strings.Contains(content, "hard coded threshold") {
+				violations = append(violations, fmt.Sprintf("%s: hard-coded threshold marker detected", path))
+			}
 		}
 
 		return nil
@@ -220,7 +232,7 @@ func validateTruthSpine(root string) error {
 		return err
 	}
 	if len(violations) > 0 {
-		return fmt.Errorf("fake confidence detected in %s", strings.Join(violations, ", "))
+		return fmt.Errorf(strings.Join(violations, "; "))
 	}
 	return nil
 }
