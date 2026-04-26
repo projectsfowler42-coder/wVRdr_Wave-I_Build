@@ -14,7 +14,58 @@ export interface TruthEnvelope<T> {
   readonly truthClass: TruthClass;
 }
 
-export const enforceTruthSpine = <T>(env: TruthEnvelope<T>): TruthClass => {
-  const age = (Date.now() - env.timestamp) / 1000;
-  return env.truthClass === TruthClass.LIVE && age > 60 ? TruthClass.STALE : env.truthClass;
+export interface TruthRaceResult<T> {
+  readonly winner: TruthEnvelope<T>;
+  readonly candidates: readonly TruthEnvelope<T>[];
+  readonly rejected: readonly TruthEnvelope<T>[];
+}
+
+const LIVE_MAX_AGE_SECONDS = 60;
+
+export const ageSeconds = (timestamp: number, now = Date.now()): number => {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return Number.POSITIVE_INFINITY;
+  return Math.max(0, Math.floor((now - timestamp) / 1000));
 };
+
+export const enforceTruthSpine = <T>(env: TruthEnvelope<T>, now = Date.now()): TruthClass => {
+  const age = ageSeconds(env.timestamp, now);
+  return env.truthClass === TruthClass.LIVE && age > LIVE_MAX_AGE_SECONDS ? TruthClass.STALE : env.truthClass;
+};
+
+export const normalizeTruthEnvelope = <T>(env: TruthEnvelope<T>, now = Date.now()): TruthEnvelope<T> => ({
+  ...env,
+  truthClass: enforceTruthSpine(env, now),
+});
+
+const truthRank = (truthClass: TruthClass): number => {
+  if (truthClass === TruthClass.LIVE) return 0;
+  if (truthClass === TruthClass.DEGRADED) return 1;
+  if (truthClass === TruthClass.STALE) return 2;
+  return 3;
+};
+
+export const raceTruthEnvelopes = <T>(candidates: readonly TruthEnvelope<T>[], now = Date.now()): TruthRaceResult<T> => {
+  if (candidates.length === 0) {
+    throw new Error('Truth race requires at least one candidate');
+  }
+
+  const normalized = candidates.map((candidate) => normalizeTruthEnvelope(candidate, now));
+  const sorted = [...normalized].sort((left, right) => {
+    const rankDelta = truthRank(left.truthClass) - truthRank(right.truthClass);
+    if (rankDelta !== 0) return rankDelta;
+    return ageSeconds(left.timestamp, now) - ageSeconds(right.timestamp, now);
+  });
+
+  return {
+    winner: sorted[0],
+    candidates: normalized,
+    rejected: sorted.slice(1),
+  };
+};
+
+export const failedEnvelope = <T>(value: T, sourceId: string, timestamp = Date.now()): TruthEnvelope<T> => ({
+  value,
+  sourceId,
+  timestamp,
+  truthClass: TruthClass.FAILED,
+});
