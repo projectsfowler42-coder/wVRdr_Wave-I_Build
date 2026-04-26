@@ -7,6 +7,7 @@ import DataQualityLedger from "@/components/DataQualityLedger";
 import ExceptionSeverityLadder from "@/components/ExceptionSeverityLadder";
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import { buildCapitalSummary } from "@/lib/capital-summary";
+import { captureWarRoomSnapshot, loadLatestWarRoomCapture, type WarRoomCapture } from "@/lib/data-scrape";
 import { deriveHoldingContext } from "@/lib/decision-model";
 import { loadLocalQuote, refreshQuotes, type Quote, type QuoteRefreshStatus } from "@/lib/market";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
@@ -65,6 +66,7 @@ export default function WarRoom() {
   const [refreshState, setRefreshState] = useState<RefreshRunState>("idle");
   const [refreshReport, setRefreshReport] = useState<LocalRefreshReport | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [latestCapture, setLatestCapture] = useState<WarRoomCapture | null>(() => loadLatestWarRoomCapture());
   const [quoteEpoch, setQuoteEpoch] = useState(0);
 
   const quotesByTicker = useMemo(() => {
@@ -112,6 +114,18 @@ export default function WarRoom() {
       : `refresh finished · ${refreshReport.updated} updated`
     : null;
 
+  function captureCurrentWarRoom(statuses: QuoteRefreshStatus[], state: RefreshRunState) {
+    const capture = captureWarRoomSnapshot({
+      readinessState,
+      refreshState: state,
+      holdings,
+      quotesByTicker,
+      refreshStatuses: statuses,
+      capitalSummary: summary,
+    });
+    setLatestCapture(capture);
+  }
+
   async function handleDataRefresh() {
     if (refreshState === "running") return;
     setRefreshState("running");
@@ -138,10 +152,12 @@ export default function WarRoom() {
         finishedAt: new Date(now).toISOString(),
       });
       setQuoteEpoch((value) => value + 1);
+      captureCurrentWarRoom(result.statuses, "completed");
     } catch (error) {
       const now = Date.now();
       setLastUpdated(now);
       setRefreshReport({ updated: 0, failed: 1, statuses: [], finishedAt: new Date(now).toISOString() });
+      captureCurrentWarRoom([], "completed");
       console.error("Wave-I refresh failed", error);
     } finally {
       setRefreshState("completed");
@@ -179,11 +195,12 @@ export default function WarRoom() {
               </div>
               <span className="text-[11px] text-muted-foreground md:text-right">{readinessDetail}</span>
             </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <ReadinessMetric label="Refresh state" value={refreshState} detail="Guarded manual refresh loop" />
               <ReadinessMetric label="Quote coverage" value={`${coveredHoldings}/${holdings.length}`} detail={`${quoteCoveragePct}% of tracked holdings covered`} />
               <ReadinessMetric label="Exceptions" value={String(refreshIssues.length)} detail="Unresolved ticker refresh statuses" />
               <ReadinessMetric label="Telemetry cards" value={String(contexts.length)} detail="Position contexts computed this render" />
+              <ReadinessMetric label="Data scrape" value={latestCapture?.bridgeStatus ?? "standing by"} detail={latestCapture ? `Last capture ${new Date(latestCapture.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Local bridge ready for DB capture"} />
             </div>
           </section>
 
