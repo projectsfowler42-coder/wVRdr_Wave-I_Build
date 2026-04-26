@@ -5,19 +5,41 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/projectsfowler42-coder/wVRdr_Wave-I_Build/tools/wvrdr-cli/execution"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "validate" {
-		if err := validateTruthSpine("."); err != nil {
-			fmt.Fprintf(os.Stderr, "Truth Audit: FAIL: %v\n", err)
-			os.Exit(1)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "validate":
+			if err := validateTruthSpine("."); err != nil {
+				fmt.Fprintf(os.Stderr, "Truth Audit: FAIL: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("Truth Audit: PASS")
+			return
+		case "simulate-ladder":
+			runSimulateLadder()
+			return
 		}
-		fmt.Println("Truth Audit: PASS")
-		return
 	}
 
 	fmt.Println("wvrdr: Marshall CLI ready")
+}
+
+func runSimulateLadder() {
+	if err := execution.VerifyLiveSafety(); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	ladder := execution.GenerateLadder("BKLN", "BUY", 999, 21.05)
+	fmt.Println("[SHADOW_INTENT] IBKR Limit Ladder Preview:")
+	for i, order := range ladder {
+		fmt.Printf(" Rung %d: %s %d shares of %s at $%.2f\n", i+1, order.Action, order.Quantity, order.Ticker, order.Price)
+	}
+	fmt.Println("[STATUS] No orders transmitted. Execution locked to SHADOW.")
 }
 
 func validateTruthSpine(root string) error {
