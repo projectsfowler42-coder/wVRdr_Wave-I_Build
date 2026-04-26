@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AddHoldingForm from "@/components/AddHoldingForm";
 import PortfolioTable from "@/components/PortfolioTable";
 import WarRoomSevenTileGrid, { type SevenTileItem } from "@/components/WarRoomSevenTileGrid";
@@ -7,6 +7,7 @@ import { captureWarRoomSnapshot, loadLatestWarRoomCapture, type WarRoomCapture }
 import { listWaveIInstruments } from "@/lib/loadInstruments";
 import { loadLocalQuote, refreshQuotes, type Quote, type QuoteRefreshStatus } from "@/lib/market";
 import { loadHoldings, type Holding } from "@/lib/portfolio";
+import { installThemeShield } from "@/lib/theme-shield";
 import { fmtDollar, fmtPct } from "@/lib/utils";
 
 type Tab = "warroom" | "portfolio";
@@ -54,6 +55,10 @@ export default function WarRoomSurface() {
   const [latestCapture, setLatestCapture] = useState<WarRoomCapture | null>(() => loadLatestWarRoomCapture());
   const [quoteEpoch, setQuoteEpoch] = useState(0);
 
+  useEffect(() => {
+    installThemeShield(theme);
+  }, [theme]);
+
   const quotesByTicker = useMemo(() => {
     void quoteEpoch;
     const quotes: Record<string, Quote | undefined> = {};
@@ -81,8 +86,8 @@ export default function WarRoomSurface() {
   ], [covered, coveragePct, holdings.length, issues.length, latestCapture, summary, truth]);
 
   const surface = theme === "dark"
-    ? "min-h-screen bg-slate-950 text-slate-100"
-    : "min-h-screen bg-slate-100 text-slate-950";
+    ? "min-h-screen bg-slate-950 text-slate-100 wavei-theme-shield"
+    : "min-h-screen bg-slate-100 text-slate-950 wavei-theme-shield";
 
   async function scrape(statusesForPayload: QuoteRefreshStatus[] = statuses) {
     const payload = await captureWarRoomSnapshot({
@@ -132,7 +137,7 @@ export default function WarRoomSurface() {
   return (
     <div className={surface}>
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-5 px-4 py-4 md:px-6 md:py-6">
-        <header className="flex flex-col gap-3 rounded-3xl border border-white/15 bg-white/10 p-4 shadow-[0_0_38px_rgba(34,211,238,0.18)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+        <header className="wavei-liquid-glass flex flex-col gap-3 rounded-3xl p-4 shadow-[0_0_38px_rgba(34,211,238,0.18)] md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-300">Wave-I War Room</div>
             <h1 className="mt-1 text-3xl font-semibold">Truth Spine Dashboard</h1>
@@ -151,7 +156,7 @@ export default function WarRoomSurface() {
             <button type="button" onClick={() => void scrape()} className="fixed bottom-5 right-5 z-20 rounded-2xl border border-emerald-200/80 bg-emerald-200/40 px-4 py-3 text-xs font-bold uppercase tracking-widest text-emerald-950 shadow-[0_0_30px_rgba(52,211,153,0.55)] backdrop-blur-xl">[Data Scrape]</button>
           </main>
         ) : (
-          <main className="flex flex-1 flex-col gap-4 rounded-3xl border border-white/20 bg-white/10 p-4 backdrop-blur-xl">
+          <main className="wavei-liquid-glass flex flex-1 flex-col gap-4 rounded-3xl p-4">
             <AddHoldingForm holdings={holdings} onHoldingsChange={setHoldings} />
             <PortfolioTable holdings={holdings} onHoldingsChange={setHoldings} />
           </main>
