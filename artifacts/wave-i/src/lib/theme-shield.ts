@@ -11,7 +11,8 @@ const CSS = `
   --wavei-panel: rgba(15, 23, 42, 0.72);
   --wavei-text: #f8fafc;
   --wavei-muted: #94a3b8;
-  --wavei-cyan: #22d3ee;
+  --wavei-cyan: rgb(0, 255, 255);
+  --wavei-pink: rgb(255, 0, 255);
   --wavei-mint: #34d399;
 }
 
@@ -22,8 +23,9 @@ const CSS = `
   --wavei-panel: rgba(255, 255, 255, 0.72);
   --wavei-text: #020617;
   --wavei-muted: #475569;
-  --wavei-cyan: #0891b2;
-  --wavei-mint: #059669;
+  --wavei-cyan: rgb(0, 255, 255);
+  --wavei-pink: rgb(255, 0, 255);
+  --wavei-mint: #34d399;
 }
 
 .wavei-theme-shield {
@@ -31,11 +33,32 @@ const CSS = `
   color: var(--wavei-text);
 }
 
-.wavei-liquid-glass {
+.wavei-liquid-glass,
+.liquid-glass-tile {
   background: var(--wavei-panel);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+}
+
+.cyan {
+  color: var(--wavei-cyan);
+  text-shadow: 0 0 14px rgba(0, 255, 255, 0.46);
+}
+
+.pink {
+  color: var(--wavei-pink);
+  text-shadow: 0 0 14px rgba(255, 0, 255, 0.42);
+}
+
+.wvrdr-war-room {
+  background: radial-gradient(circle at top left, rgba(0, 255, 255, 0.14), #000 42%, #000 100%);
+}
+
+.selectable-7-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
 }
 `;
 
@@ -57,6 +80,10 @@ export function installThemeShield(mode: ThemeShieldMode = "dark"): ThemeShieldM
   document.documentElement.setAttribute(THEME_ATTRIBUTE, mode);
   document.documentElement.classList.add("wavei-theme-shield");
   return mode;
+}
+
+export function applyThemeShield(mode: ThemeShieldMode = "dark"): ThemeShieldMode {
+  return installThemeShield(mode);
 }
 
 export function readThemeShield(): ThemeShieldMode {
