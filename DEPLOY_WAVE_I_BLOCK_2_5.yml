@@ -1,0 +1,18 @@
+name: Deploy Wave-I (Block-2.5)
+on:
+  push:
+    branches: [main]
+jobs:
+  marshall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Build Marshall
+        run: go build -o wvrdr ./tools/wvrdr-cli
+      - name: Run Truth Audit
+        run: ./wvrdr validate
+      - name: Build Ghost Image
+        run: pnpm run build:ghost
