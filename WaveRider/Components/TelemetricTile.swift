@@ -129,36 +129,6 @@ struct TelemetricTile<T: Codable & Hashable>: View {
     }
 }
 
-/// Compact integrity badge for Truth Spine status.
-struct TruthBadge: View {
-    let truthClass: TruthClass
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(truthClass.color)
-                .frame(width: 7, height: 7)
-                .shadow(color: truthClass.color.opacity(0.82), radius: 6, x: 0, y: 0)
-
-            Text(truthClass.rawValue)
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .tracking(1.1)
-                .foregroundStyle(truthClass.color)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule(style: .continuous)
-                .fill(truthClass.color.opacity(0.12))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .strokeBorder(truthClass.color.opacity(0.54), lineWidth: 1)
-        )
-        .accessibilityLabel("Truth class \(truthClass.rawValue)")
-    }
-}
-
 private struct TelemetryMetaPill: View {
     let label: String
     let value: String
