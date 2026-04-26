@@ -114,8 +114,8 @@ export default function WarRoom() {
       : `refresh finished · ${refreshReport.updated} updated`
     : null;
 
-  function captureCurrentWarRoom(statuses: QuoteRefreshStatus[], state: RefreshRunState) {
-    const capture = captureWarRoomSnapshot({
+  async function captureCurrentWarRoom(statuses: QuoteRefreshStatus[], state: RefreshRunState) {
+    const payload = await captureWarRoomSnapshot({
       readinessState,
       refreshState: state,
       holdings,
@@ -123,7 +123,12 @@ export default function WarRoom() {
       refreshStatuses: statuses,
       capitalSummary: summary,
     });
-    setLatestCapture(capture);
+    setLatestCapture(payload);
+    console.log("[DATA_SCRAPE] Google Sheets append payload", payload);
+  }
+
+  async function handleDataScrape() {
+    await captureCurrentWarRoom(refreshReport?.statuses ?? [], refreshState === "running" ? "running" : "completed");
   }
 
   async function handleDataRefresh() {
@@ -152,12 +157,12 @@ export default function WarRoom() {
         finishedAt: new Date(now).toISOString(),
       });
       setQuoteEpoch((value) => value + 1);
-      captureCurrentWarRoom(result.statuses, "completed");
+      await captureCurrentWarRoom(result.statuses, "completed");
     } catch (error) {
       const now = Date.now();
       setLastUpdated(now);
       setRefreshReport({ updated: 0, failed: 1, statuses: [], finishedAt: new Date(now).toISOString() });
-      captureCurrentWarRoom([], "completed");
+      await captureCurrentWarRoom([], "completed");
       console.error("Wave-I refresh failed", error);
     } finally {
       setRefreshState("completed");
@@ -193,14 +198,21 @@ export default function WarRoom() {
                 <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Operator readiness</h2>
                 <div className="mt-1 text-sm font-semibold capitalize text-foreground">{readinessState}</div>
               </div>
-              <span className="text-[11px] text-muted-foreground md:text-right">{readinessDetail}</span>
+              <button
+                type="button"
+                onClick={handleDataScrape}
+                className="rounded-xl border border-border bg-background px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-foreground shadow-sm hover:bg-muted"
+              >
+                Data Scrape
+              </button>
             </div>
+            <div className="mt-1 text-[11px] text-muted-foreground md:text-right">{readinessDetail}</div>
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <ReadinessMetric label="Refresh state" value={refreshState} detail="Guarded manual refresh loop" />
               <ReadinessMetric label="Quote coverage" value={`${coveredHoldings}/${holdings.length}`} detail={`${quoteCoveragePct}% of tracked holdings covered`} />
               <ReadinessMetric label="Exceptions" value={String(refreshIssues.length)} detail="Unresolved ticker refresh statuses" />
               <ReadinessMetric label="Telemetry cards" value={String(contexts.length)} detail="Position contexts computed this render" />
-              <ReadinessMetric label="Data scrape" value={latestCapture?.bridgeStatus ?? "standing by"} detail={latestCapture ? `Last capture ${new Date(latestCapture.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Local bridge ready for DB capture"} />
+              <ReadinessMetric label="Google Sheets" value={latestCapture?.action ?? "standing by"} detail={latestCapture ? `${latestCapture.data.length} rows ready for WaveRider_Archive` : "Telemetry_Logs append payload ready"} />
             </div>
           </section>
 
