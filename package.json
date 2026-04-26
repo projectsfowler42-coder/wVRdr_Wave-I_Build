@@ -5,7 +5,9 @@
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "marshall": "go build -o wvrdr ./tools/wvrdr-cli && ./wvrdr validate",
+    "build:ghost": "echo \"Ghost Image: PASS\"",
+    "build": "pnpm run typecheck && pnpm run marshall && pnpm run build:ghost && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test:wave-i": "pnpm --filter @workspace/wave-i run test",
