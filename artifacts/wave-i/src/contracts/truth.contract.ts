@@ -14,6 +14,10 @@ export interface TruthEnvelope<T> {
   readonly truthClass: TruthClass;
 }
 
+export interface RescueEnvelope<T> extends TruthEnvelope<T> {
+  readonly staleRescue?: boolean;
+}
+
 export interface TruthRaceResult<T> {
   readonly winner: TruthEnvelope<T>;
   readonly candidates: readonly TruthEnvelope<T>[];
@@ -21,6 +25,7 @@ export interface TruthRaceResult<T> {
 }
 
 const LIVE_MAX_AGE_SECONDS = 60;
+export const RESCUE_TIMEOUT_MS = 3500;
 
 export const ageSeconds = (timestamp: number, now = Date.now()): number => {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return Number.POSITIVE_INFINITY;
@@ -62,6 +67,28 @@ export const raceTruthEnvelopes = <T>(candidates: readonly TruthEnvelope<T>[], n
     rejected: sorted.slice(1),
   };
 };
+
+export async function raceTruth<T>(
+  livePath: () => Promise<TruthEnvelope<T>>,
+  fallback: TruthEnvelope<T>,
+  timeoutMs = RESCUE_TIMEOUT_MS,
+): Promise<RescueEnvelope<T>> {
+  const rescued: RescueEnvelope<T> = {
+    ...normalizeTruthEnvelope(fallback),
+    truthClass: TruthClass.STALE,
+    staleRescue: true,
+  };
+
+  const timeout = new Promise<RescueEnvelope<T>>((resolve) => {
+    window.setTimeout(() => resolve(rescued), timeoutMs);
+  });
+
+  const live = livePath()
+    .then((result): RescueEnvelope<T> => ({ ...normalizeTruthEnvelope(result), staleRescue: false }))
+    .catch((): RescueEnvelope<T> => rescued);
+
+  return Promise.race([live, timeout]);
+}
 
 export const failedEnvelope = <T>(value: T, sourceId: string, timestamp = Date.now()): TruthEnvelope<T> => ({
   value,
