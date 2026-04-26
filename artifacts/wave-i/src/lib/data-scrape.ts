@@ -165,6 +165,10 @@ export const captureToGoogleSheets = async (
   return payload;
 };
 
+export function executeRobustScrape(telemetry: Record<string, TelemetryEnvelope>): Promise<GoogleSheetsAppendPayload> {
+  return captureToGoogleSheets(telemetry);
+}
+
 export function buildWarRoomTelemetry(input: CaptureInput): Record<string, TelemetryEnvelope> {
   const now = Date.now();
   const failed = input.refreshStatuses.some((status) => status.connectionStatus === "FAILED");
