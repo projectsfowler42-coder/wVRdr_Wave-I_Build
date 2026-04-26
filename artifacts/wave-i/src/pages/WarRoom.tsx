@@ -1,5 +1,5 @@
-import WarRoomSurface from "@/components/WarRoomSurface";
+import RobustWarRoomSurface from "@/components/RobustWarRoomSurface";
 
 export default function WarRoom() {
-  return <WarRoomSurface />;
+  return <RobustWarRoomSurface />;
 }
