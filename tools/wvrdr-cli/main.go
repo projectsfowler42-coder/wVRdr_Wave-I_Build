@@ -14,18 +14,27 @@ import (
 )
 
 const defaultCaptureHistoryPath = "wavei_war_room_capture_history_v1.json"
+const waveIArtifactDir = "artifacts/wave-i"
+const waveISrcDir = "artifacts/wave-i/src"
+const waveIDistDir = "artifacts/wave-i/dist"
 
 var fakeSourcePattern = regexp.MustCompile(`(?i)(^|[^a-z0-9])(mock|sim)([^a-z0-9]|$)`)
+
+type marshallGate struct {
+	ID   string
+	Name string
+	Run  func() error
+}
 
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "validate":
-			if err := validateTruthSpine("."); err != nil {
-				fmt.Fprintf(os.Stderr, "Truth Audit: FAIL: %v\n", err)
+			if err := runSevenGateMarshall("."); err != nil {
+				fmt.Fprintf(os.Stderr, "[MARSHALL] 7-Gate Audit: FAIL: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Println("Truth Audit: PASS")
+			fmt.Println("[MARSHALL] 7-Gate Audit: PASS")
 			return
 		case "simulate-ladder":
 			runSimulateLadder()
@@ -72,6 +81,173 @@ func runInspectCaptures(args []string) {
 	}
 
 	fmt.Printf("[SUCCESS] %d Recent Captures Detected. All Truth Spine badges valid.\n", count)
+}
+
+func runSevenGateMarshall(root string) error {
+	gates := []marshallGate{
+		{ID: "Gate 1", Name: "Truth Spine source audit", Run: func() error { return validateTruthSpine(root) }},
+		{ID: "Gate 2", Name: "Wave-I PWA source tree present", Run: func() error { return requireDir(filepath.Join(root, waveISrcDir)) }},
+		{ID: "Gate 3", Name: "GitHub Pages build path configured", Run: func() error { return requireWorkflowBuildPath(root) }},
+		{ID: "Gate 4", Name: "No blocked Atlassian/Jira dependencies", Run: func() error { return rejectBlockedDependencyMarkers(root) }},
+		{ID: "Gate 5", Name: "PWA manifest and service worker present", Run: func() error { return requirePWAAssets(root) }},
+		{ID: "Gate 6", Name: "MDK resilience hooks present", Run: func() error { return requireMDKHooks(root) }},
+		{ID: "Gate 7", Name: "Shadow execution lock preserved", Run: func() error { return requireShadowExecutionLock(root) }},
+	}
+
+	for _, gate := range gates {
+		fmt.Printf("[MARSHALL] %s - %s... ", gate.ID, gate.Name)
+		if err := gate.Run(); err != nil {
+			fmt.Println("FAIL")
+			return fmt.Errorf("%s failed: %w", gate.ID, err)
+		}
+		fmt.Println("PASS")
+	}
+	return nil
+}
+
+func requireDir(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", path)
+	}
+	return nil
+}
+
+func requireFile(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("%s is a directory, expected file", path)
+	}
+	return nil
+}
+
+func requireWorkflowBuildPath(root string) error {
+	workflow := filepath.Join(root, ".github", "workflows", "deploy-wave-i.yml")
+	content, err := os.ReadFile(workflow)
+	if err != nil {
+		return err
+	}
+	text := string(content)
+	required := []string{
+		"pnpm --filter @workspace/wave-i run typecheck",
+		"pnpm --filter @workspace/wave-i run test",
+		"pnpm --filter @workspace/wave-i run build",
+		"path: artifacts/wave-i/dist",
+		"actions/deploy-pages@v4",
+	}
+	for _, needle := range required {
+		if !strings.Contains(text, needle) {
+			return fmt.Errorf("deploy workflow missing %q", needle)
+		}
+	}
+	if strings.Contains(text, "artifacts/wave-i/dist/public") {
+		return fmt.Errorf("deploy workflow still points to deprecated dist/public rescue path")
+	}
+	return nil
+}
+
+func rejectBlockedDependencyMarkers(root string) error {
+	violations := make([]string, 0)
+	err := filepath.Walk(filepath.Join(root, waveISrcDir), func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".ts" && ext != ".tsx" {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		lower := strings.ToLower(string(content))
+		for _, blocked := range []string{"@atlaskit/", "atlassian", "jira", "jira-client", "@jira/"} {
+			if strings.Contains(lower, blocked) {
+				violations = append(violations, fmt.Sprintf("%s contains %q", path, blocked))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf(strings.Join(violations, "; "))
+	}
+	return nil
+}
+
+func requirePWAAssets(root string) error {
+	for _, path := range []string{
+		filepath.Join(root, waveIArtifactDir, "public", "manifest.webmanifest"),
+		filepath.Join(root, waveIArtifactDir, "public", "sw.js"),
+		filepath.Join(root, waveIArtifactDir, "index.html"),
+	} {
+		if err := requireFile(path); err != nil {
+			return err
+		}
+	}
+	manifest, err := os.ReadFile(filepath.Join(root, waveIArtifactDir, "public", "manifest.webmanifest"))
+	if err != nil {
+		return err
+	}
+	manifestText := string(manifest)
+	for _, needle := range []string{"\"display\": \"standalone\"", "\"orientation\": \"portrait\""} {
+		if !strings.Contains(manifestText, needle) {
+			return fmt.Errorf("manifest missing %s", needle)
+		}
+	}
+	return nil
+}
+
+func requireMDKHooks(root string) error {
+	if err := requireFile(filepath.Join(root, waveISrcDir, "lib", "mdk.ts")); err != nil {
+		return err
+	}
+	app, err := os.ReadFile(filepath.Join(root, waveISrcDir, "App.tsx"))
+	if err != nil {
+		return err
+	}
+	text := string(app)
+	for _, needle := range []string{"runMdkSelfTest", "MDK SELF TEST", "AbortController", "FETCH_TIMEOUT_MS"} {
+		if !strings.Contains(text, needle) {
+			return fmt.Errorf("App.tsx missing MDK/timeout hook %q", needle)
+		}
+	}
+	wal, err := os.ReadFile(filepath.Join(root, waveISrcDir, "lib", "wal.ts"))
+	if err != nil {
+		return err
+	}
+	walText := string(wal)
+	for _, needle := range []string{"StorageMode", "MEMORY", "getStorageMode"} {
+		if !strings.Contains(walText, needle) {
+			return fmt.Errorf("wal.ts missing storage fallback marker %q", needle)
+		}
+	}
+	return nil
+}
+
+func requireShadowExecutionLock(root string) error {
+	content, err := os.ReadFile(filepath.Join(root, "tools", "wvrdr-cli", "execution", "safety.go"))
+	if err != nil {
+		return err
+	}
+	text := string(content)
+	for _, needle := range []string{"EXECUTION_MODE", "SHADOW", "ALLOW_LIVE_ORDERS"} {
+		if !strings.Contains(text, needle) {
+			return fmt.Errorf("execution safety missing %q", needle)
+		}
+	}
+	return nil
 }
 
 func resolveCaptureHistoryPath(args []string) string {
