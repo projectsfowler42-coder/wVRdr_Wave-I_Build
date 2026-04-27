@@ -1,4 +1,4 @@
-name: Deploy Wave-I
+name: Deploy Wave-I PWA (Block-5)
 
 on:
   push:
@@ -11,34 +11,71 @@ permissions:
   id-token: write
 
 concurrency:
-  group: deploy-wave-i-${{ github.ref }}
-  cancel-in-progress: true
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  deploy-static-rescue:
+  build-and-audit:
+    name: 7-Gate Marshall Build and Audit
     runs-on: ubuntu-latest
+    steps:
+      - name: Gate 0 - Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Gate 1 - Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Gate 1 - Setup Node.js PWA Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Gate 1 - Install Workspace Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Gate 2 - Setup Go Marshall Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Gate 2 - Build Marshall CLI
+        run: go build -o tools/wvrdr-cli/wvrdr ./tools/wvrdr-cli
+
+      - name: Gate 3 - Run 7-Gate Truth Spine Audit
+        run: ./tools/wvrdr-cli/wvrdr validate
+
+      - name: Gate 4 - Run Wave-I Typecheck
+        run: pnpm --filter @workspace/wave-i run typecheck
+
+      - name: Gate 5 - Run Wave-I Unit Tests
+        run: pnpm --filter @workspace/wave-i run test
+
+      - name: Gate 6 - Build Wave-I PWA Artifact
+        run: pnpm --filter @workspace/wave-i run build
+
+      - name: Gate 7 - Verify GitHub Pages Artifact Path
+        run: |
+          test -d artifacts/wave-i/dist
+          test -f artifacts/wave-i/dist/index.html
+
+      - name: Upload Build Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/wave-i/dist
+
+  deploy:
+    name: Deploy Wave-I GitHub Pages Mirror
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
+    runs-on: ubuntu-latest
+    needs: build-and-audit
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate static rescue payload
-        run: |
-          test -f artifacts/wave-i/dist/public/index.html
-          test -f artifacts/wave-i/dist/public/404.html
-          test -f artifacts/wave-i/dist/public/.nojekyll
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: artifacts/wave-i/dist/public
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
