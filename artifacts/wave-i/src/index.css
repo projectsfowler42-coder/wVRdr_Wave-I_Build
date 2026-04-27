@@ -318,6 +318,50 @@ button {
   outline: none;
 }
 
+.wi-probes {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.wi-probe {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "status label"
+    "status message";
+  gap: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--wi-border);
+  background: var(--wi-panel-2);
+  padding: 10px;
+}
+
+.wi-probe b {
+  grid-area: status;
+  align-self: center;
+  min-width: 38px;
+  font-size: 9px;
+  color: var(--wi-muted);
+}
+
+.wi-probe span {
+  grid-area: label;
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--wi-text);
+}
+
+.wi-probe small {
+  grid-area: message;
+  font-size: 9px;
+  color: var(--wi-muted);
+}
+
+.wi-probe[data-status="PASS"] b { color: var(--wi-cyan); }
+.wi-probe[data-status="WARN"] b { color: var(--wi-yellow); }
+.wi-probe[data-status="FAIL"] b { color: var(--wi-red); }
+
 @media (max-height: 760px) {
   .wi-app { gap: 4px; padding: 6px; }
   .wi-head, .wi-tile { border-radius: 11px; padding: 7px; }
