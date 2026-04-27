@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { runMdkSelfTest, type MdkProbe } from './lib/mdk';
 import { getTruthColor, mapSourceToTruth, TruthClass } from './lib/truth';
 import { getSetting, loadScrapes, saveScrape, setSetting, sydneyStamp, utcStamp, type ScrapeRecord } from './lib/wal';
 
@@ -128,6 +129,22 @@ function Back({ setPage }: { setPage: (page: Page) => void }) {
   return <button className="wi-back" onClick={() => setPage('main')}>BACK</button>;
 }
 
+function MdkProbeList({ probes }: { probes: MdkProbe[] }) {
+  if (!probes.length) return null;
+
+  return (
+    <div className="wi-probes" aria-label="MDK self-test results">
+      {probes.map((probe) => (
+        <div className="wi-probe" key={probe.id} data-status={probe.status}>
+          <b>{probe.status}</b>
+          <span>{probe.label}</span>
+          <small>{probe.message}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>('main');
   const [bucket, setBucket] = useState<Bucket>('GREEN');
@@ -138,6 +155,7 @@ export default function App() {
   const [checks, setChecks] = useState<CheckState[]>(() => CHECKS.map(() => 'UNKNOWN'));
   const [wal, setWal] = useState<ScrapeRecord[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [mdkProbes, setMdkProbes] = useState<MdkProbe[]>([]);
   const [action, setAction] = useState<ActionStatus>(() => nowStatus('BOOT', 'IDLE', 'Seed state loaded. No live connector attached.'));
 
   const instruments = bucket === 'BLUE' ? BLUE : GREEN;
@@ -213,11 +231,11 @@ export default function App() {
   const scrape = async () => {
     try {
       const payload = { bucket, ticker, selected, quote, quoteTruth, funding: 30000, reserves: { etrade: 20000, marcus: 10000 }, checks, action };
-      await saveScrape(payload);
+      const mode = await saveScrape(payload);
       setWal(await loadScrapes());
-      setAction(nowStatus('DATA SCRAPE', 'SUCCESS', 'Snapshot saved to IndexedDB WAL.'));
+      setAction(nowStatus('DATA SCRAPE', mode === 'INDEXEDDB' ? 'SUCCESS' : 'ACTIVE', mode === 'INDEXEDDB' ? 'Snapshot saved to IndexedDB WAL.' : 'Snapshot saved to MEMORY WAL. IndexedDB unavailable.'));
     } catch (error) {
-      setAction(nowStatus('DATA SCRAPE', 'FAILED', error instanceof Error ? error.message : 'IndexedDB WAL write failed.'));
+      setAction(nowStatus('DATA SCRAPE', 'FAILED', error instanceof Error ? error.message : 'WAL write failed.'));
     }
   };
 
@@ -237,7 +255,7 @@ export default function App() {
     }
     const text = kind === 'json'
       ? JSON.stringify(wal, null, 2)
-      : ['id,localTs,utcTs,action', ...wal.map((r) => `${r.id ?? ''},"${r.localTs}","${r.utcTs}","${r.action ?? ''}"`)].join('\n');
+      : ['id,localTs,utcTs,action,storageMode', ...wal.map((r) => `${r.id ?? ''},"${r.localTs}","${r.utcTs}","${r.action ?? ''}","${r.storageMode ?? ''}"`)].join('\n');
     const blob = new Blob([text], { type: kind === 'json' ? 'application/json' : 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -257,6 +275,19 @@ export default function App() {
     setAction(nowStatus('VERIFY', 'ACTIVE', `${CHECKS[index]} set to ${state}.`));
   };
 
+  const runMdk = async () => {
+    setAction(nowStatus('MDK SELF TEST', 'RUNNING', 'Running viewport, PWA, storage, and connector probes.'));
+    try {
+      const probes = await runMdkSelfTest(apiBaseUrl);
+      setMdkProbes(probes);
+      const failCount = probes.filter((probe) => probe.status === 'FAIL').length;
+      const warnCount = probes.filter((probe) => probe.status === 'WARN').length;
+      setAction(nowStatus('MDK SELF TEST', failCount ? 'FAILED' : warnCount ? 'ACTIVE' : 'SUCCESS', `${probes.length} probes complete. ${failCount} fail / ${warnCount} warn.`));
+    } catch (error) {
+      setAction(nowStatus('MDK SELF TEST', 'FAILED', error instanceof Error ? error.message : 'MDK self-test failed.'));
+    }
+  };
+
   if (page !== 'main') {
     return (
       <main className="wi-app">
@@ -272,9 +303,9 @@ export default function App() {
 
           {page === 'reserves' && <section className="wi-list"><div className="wi-metric"><b>$20,000</b><span>E*TRADE 3.75%</span></div><div className="wi-metric"><b>$10,000</b><span>MARCUS 3.65%</span></div><button onClick={scrape}>SCRAPE</button></section>}
 
-          {page === 'proof' && <section className="wi-list"><div className="wi-metric"><b>{wal.length}</b><span>WAL RECORDS</span></div><button onClick={() => exportWal('json')}>EXPORT JSON</button><button onClick={() => exportWal('csv')}>EXPORT CSV</button></section>}
+          {page === 'proof' && <section className="wi-list"><div className="wi-metric"><b>{wal.length}</b><span>WAL RECORDS</span></div><button onClick={() => exportWal('json')}>EXPORT JSON</button><button onClick={() => exportWal('csv')}>EXPORT CSV</button><MdkProbeList probes={mdkProbes} /></section>}
 
-          {page === 'actions' && <section className="wi-list"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('ibkr')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button><label className="wi-input">API_BASE_URL<input value={apiBaseUrl} onChange={(e) => void persistApiBaseUrl(e.target.value)} placeholder="https://..." /></label></section>}
+          {page === 'actions' && <section className="wi-list"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('ibkr')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button><button onClick={runMdk}>MDK SELF TEST</button><label className="wi-input">API_BASE_URL<input value={apiBaseUrl} onChange={(e) => void persistApiBaseUrl(e.target.value)} placeholder="https://..." /></label><MdkProbeList probes={mdkProbes} /></section>}
         </div>
       </main>
     );
@@ -289,7 +320,7 @@ export default function App() {
         <Tile index={4} title="FUNDING" value="$30K" sub="2026-04-28" truth={TruthClass.DEGRADED} onClick={() => setPage('funding')} />
         <Tile index={5} title="RESERVES" value="$30K" sub="E*TRADE + MARCUS" truth={TruthClass.DEGRADED} onClick={() => setPage('reserves')} />
         <Tile index={6} title="PROOF" value={`${wal.length}`} sub="WAL RECORDS" truth={TruthClass.DEGRADED} onClick={() => setPage('proof')} />
-        <Tile index={7} title="ACTIONS" value="REFRESH" sub="SCRAPE / RESET" truth={TruthClass.DEGRADED} onClick={() => setPage('actions')} />
+        <Tile index={7} title="ACTIONS" value="REFRESH" sub="SCRAPE / MDK" truth={TruthClass.DEGRADED} onClick={() => setPage('actions')} />
       </section>
       <ActionStrip action={action} />
       <nav className="wi-command"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('ibkr')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button></nav>
