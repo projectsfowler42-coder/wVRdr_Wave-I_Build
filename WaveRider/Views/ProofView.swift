@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ProofView: View {
     @EnvironmentObject var store: WaveIStore
