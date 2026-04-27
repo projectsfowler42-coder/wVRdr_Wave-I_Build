@@ -1,9 +1,15 @@
 export type StoreName = 'scrape_wal' | 'settings';
+export type StorageMode = 'INDEXEDDB' | 'MEMORY' | 'FAILED';
 
 const DB_NAME = 'wvrdr_wave_i_db';
 const DB_VERSION = 1;
 const WAL_STORE: StoreName = 'scrape_wal';
 const SETTINGS_STORE: StoreName = 'settings';
+
+let storageMode: StorageMode = 'INDEXEDDB';
+let memoryId = 1;
+let memoryWal: ScrapeRecord[] = [];
+const memorySettings = new Map<string, unknown>();
 
 export interface ScrapeRecord {
   id?: number;
@@ -11,9 +17,21 @@ export interface ScrapeRecord {
   localTs: string;
   utcTs: string;
   payload: unknown;
+  storageMode?: StorageMode;
 }
 
+const markMemory = () => {
+  if (storageMode !== 'FAILED') storageMode = 'MEMORY';
+};
+
+export const getStorageMode = (): StorageMode => storageMode;
+
 const openWaveIDB = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
+  if (!('indexedDB' in globalThis)) {
+    reject(new Error('IndexedDB unavailable'));
+    return;
+  }
+
   const request = indexedDB.open(DB_NAME, DB_VERSION);
 
   request.onupgradeneeded = () => {
@@ -26,7 +44,10 @@ const openWaveIDB = (): Promise<IDBDatabase> => new Promise((resolve, reject) =>
     }
   };
 
-  request.onsuccess = () => resolve(request.result);
+  request.onsuccess = () => {
+    storageMode = 'INDEXEDDB';
+    resolve(request.result);
+  };
   request.onerror = () => reject(request.error ?? new Error('IndexedDB open failed'));
 });
 
@@ -43,53 +64,84 @@ export const sydneyStamp = (date = new Date()): string => new Intl.DateTimeForma
 
 export const utcStamp = (date = new Date()): string => date.toISOString().replace('.000', '');
 
-export const saveScrape = async (payload: unknown, action = 'DATA SCRAPE'): Promise<void> => {
-  const db = await openWaveIDB();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(WAL_STORE, 'readwrite');
-    tx.objectStore(WAL_STORE).add({
-      action,
-      payload,
-      localTs: sydneyStamp(),
-      utcTs: utcStamp(),
+export const saveScrape = async (payload: unknown, action = 'DATA SCRAPE'): Promise<StorageMode> => {
+  const record: ScrapeRecord = {
+    action,
+    payload,
+    localTs: sydneyStamp(),
+    utcTs: utcStamp(),
+    storageMode,
+  };
+
+  try {
+    const db = await openWaveIDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(WAL_STORE, 'readwrite');
+      tx.objectStore(WAL_STORE).add({ ...record, storageMode: 'INDEXEDDB' });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error('WAL write failed'));
     });
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('WAL write failed'));
-  });
-  db.close();
+    db.close();
+    storageMode = 'INDEXEDDB';
+    return storageMode;
+  } catch {
+    markMemory();
+    memoryWal = [{ ...record, id: memoryId++, storageMode: 'MEMORY' }, ...memoryWal];
+    return storageMode;
+  }
 };
 
 export const loadScrapes = async (): Promise<ScrapeRecord[]> => {
-  const db = await openWaveIDB();
-  const records = await new Promise<ScrapeRecord[]>((resolve, reject) => {
-    const tx = db.transaction(WAL_STORE, 'readonly');
-    const request = tx.objectStore(WAL_STORE).getAll();
-    request.onsuccess = () => resolve((request.result as ScrapeRecord[]).sort((a, b) => Number(b.id ?? 0) - Number(a.id ?? 0)));
-    request.onerror = () => reject(request.error ?? new Error('WAL read failed'));
-  });
-  db.close();
-  return records;
+  try {
+    const db = await openWaveIDB();
+    const records = await new Promise<ScrapeRecord[]>((resolve, reject) => {
+      const tx = db.transaction(WAL_STORE, 'readonly');
+      const request = tx.objectStore(WAL_STORE).getAll();
+      request.onsuccess = () => resolve((request.result as ScrapeRecord[]).sort((a, b) => Number(b.id ?? 0) - Number(a.id ?? 0)));
+      request.onerror = () => reject(request.error ?? new Error('WAL read failed'));
+    });
+    db.close();
+    storageMode = 'INDEXEDDB';
+    return records;
+  } catch {
+    markMemory();
+    return [...memoryWal];
+  }
 };
 
-export const setSetting = async <T>(key: string, value: T): Promise<void> => {
-  const db = await openWaveIDB();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
-    tx.objectStore(SETTINGS_STORE).put(value, key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('Setting write failed'));
-  });
-  db.close();
+export const setSetting = async <T>(key: string, value: T): Promise<StorageMode> => {
+  try {
+    const db = await openWaveIDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+      tx.objectStore(SETTINGS_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error('Setting write failed'));
+    });
+    db.close();
+    storageMode = 'INDEXEDDB';
+    return storageMode;
+  } catch {
+    markMemory();
+    memorySettings.set(key, value);
+    return storageMode;
+  }
 };
 
 export const getSetting = async <T>(key: string, fallback: T): Promise<T> => {
-  const db = await openWaveIDB();
-  const value = await new Promise<T>((resolve, reject) => {
-    const tx = db.transaction(SETTINGS_STORE, 'readonly');
-    const request = tx.objectStore(SETTINGS_STORE).get(key);
-    request.onsuccess = () => resolve((request.result as T | undefined) ?? fallback);
-    request.onerror = () => reject(request.error ?? new Error('Setting read failed'));
-  });
-  db.close();
-  return value;
+  try {
+    const db = await openWaveIDB();
+    const value = await new Promise<T>((resolve, reject) => {
+      const tx = db.transaction(SETTINGS_STORE, 'readonly');
+      const request = tx.objectStore(SETTINGS_STORE).get(key);
+      request.onsuccess = () => resolve((request.result as T | undefined) ?? fallback);
+      request.onerror = () => reject(request.error ?? new Error('Setting read failed'));
+    });
+    db.close();
+    storageMode = 'INDEXEDDB';
+    return value;
+  } catch {
+    markMemory();
+    return (memorySettings.get(key) as T | undefined) ?? fallback;
+  }
 };
