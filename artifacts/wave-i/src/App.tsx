@@ -41,6 +41,8 @@ type ActionStatus = {
   utc: string;
 };
 
+const FETCH_TIMEOUT_MS = 3500;
+
 const BLUE: Instrument[] = [
   { ticker: 'SGOV', name: 'iShares 0-3 Month Treasury Bond ETF', bucket: 'BLUE' },
   { ticker: 'BIL', name: 'SPDR Bloomberg 1-3 Month T-Bill ETF', bucket: 'BLUE' },
@@ -85,13 +87,16 @@ const nowStatus = (action: string, status: StatusCode, message: string): ActionS
   utc: utcStamp(),
 });
 
-const currency = (value: number) => `$${Math.round(value).toLocaleString('en-US')}`;
-
 const calcReadiness = (states: CheckState[]) => {
   const known = states.filter((state) => state === 'OK' || state === 'NO').length;
   const ok = states.filter((state) => state === 'OK').length;
   if (known === 0) return { label: '—/11', sub: 'UNVERIFIED', ok, known };
   return { label: ok === states.length ? 'READY' : `${ok}/11`, sub: `KNOWN ${known}/11`, ok, known };
+};
+
+const serviceWorkerUrl = () => {
+  const base = import.meta.env.BASE_URL || './';
+  return `${base.endsWith('/') ? base : `${base}/`}sw.js`;
 };
 
 function Tile({ index, title, value, sub, truth, onClick }: { index: number; title: string; value: string; sub: string; truth: TruthClass; onClick: () => void }) {
@@ -149,12 +154,17 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
-      setApiBaseUrl(await getSetting('apiBaseUrl', ''));
-      setWal(await loadScrapes());
+      try {
+        setApiBaseUrl(await getSetting('apiBaseUrl', ''));
+        setTheme(await getSetting<'dark' | 'light'>('theme', 'dark'));
+        setWal(await loadScrapes());
+      } catch (error) {
+        setAction(nowStatus('BOOT', 'FAILED', error instanceof Error ? error.message : 'Local DB boot read failed.'));
+      }
     })();
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+      navigator.serviceWorker.register(serviceWorkerUrl()).catch(() => undefined);
     }
   }, []);
 
@@ -173,9 +183,15 @@ export default function App() {
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     try {
       const url = `${apiBaseUrl.replace(/\/$/, '')}/api/market/quotes?tickers=${encodeURIComponent(ticker)}`;
-      const response = await fetch(url, { headers: { accept: 'application/json' } });
+      const response = await fetch(url, {
+        headers: { accept: 'application/json' },
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json() as { quotes?: Quote[] };
       const nextQuote = payload.quotes?.[0];
@@ -185,15 +201,24 @@ export default function App() {
       setAction(nowStatus('DATA REFRESH', 'SUCCESS', `${nextQuote.ticker} quote updated from ${nextQuote.source ?? 'source'}.`));
     } catch (error) {
       setQuoteTruth(TruthClass.FAILED);
-      setAction(nowStatus('DATA REFRESH', 'FAILED', error instanceof Error ? error.message : 'Refresh failed.'));
+      const message = error instanceof DOMException && error.name === 'AbortError'
+        ? `Thin Spine timed out after ${FETCH_TIMEOUT_MS / 1000}s.`
+        : error instanceof Error ? error.message : 'Refresh failed.';
+      setAction(nowStatus('DATA REFRESH', 'FAILED', message));
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   };
 
   const scrape = async () => {
-    const payload = { bucket, ticker, selected, quote, quoteTruth, funding: 30000, reserves: { etrade: 20000, marcus: 10000 }, checks, action };
-    await saveScrape(payload);
-    setWal(await loadScrapes());
-    setAction(nowStatus('DATA SCRAPE', 'SUCCESS', 'Snapshot saved to IndexedDB WAL.'));
+    try {
+      const payload = { bucket, ticker, selected, quote, quoteTruth, funding: 30000, reserves: { etrade: 20000, marcus: 10000 }, checks, action };
+      await saveScrape(payload);
+      setWal(await loadScrapes());
+      setAction(nowStatus('DATA SCRAPE', 'SUCCESS', 'Snapshot saved to IndexedDB WAL.'));
+    } catch (error) {
+      setAction(nowStatus('DATA SCRAPE', 'FAILED', error instanceof Error ? error.message : 'IndexedDB WAL write failed.'));
+    }
   };
 
   const reset = () => {
@@ -218,7 +243,9 @@ export default function App() {
     const link = document.createElement('a');
     link.href = url;
     link.download = `wave-i-wal.${kind}`;
+    document.body.appendChild(link);
     link.click();
+    link.remove();
     URL.revokeObjectURL(url);
     setAction(nowStatus('EXPORT', 'SUCCESS', `${kind.toUpperCase()} export generated.`));
   };
