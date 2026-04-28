@@ -47,11 +47,11 @@ final class WaveIStore: ObservableObject {
             PositionSnapshot(
                 ticker: "BKLN",
                 shares: 97,
-                account: "IBKR Pro",
+                account: "Schwab",
                 truthClass: .degraded,
                 estimatedPrice: nil,
                 estimatedMarketValue: nil,
-                sourceNote: "Invesco Senior Loan ETF. Custody: IBKR Pro execution rail.",
+                sourceNote: "Invesco Senior Loan ETF. Custody: Schwab execution rail.",
                 lastVerifiedAt: nil
             )
         ]
@@ -59,7 +59,7 @@ final class WaveIStore: ObservableObject {
         self.fundingEvents = [
             FundingEvent(
                 source: "First-tier funding release",
-                destination: "IBKR Pro",
+                destination: "Schwab",
                 amount: 30000,
                 targetDate: "2026-04-28",
                 status: "EXPECTED",
@@ -158,7 +158,7 @@ final class WaveIStore: ObservableObject {
 
     func verify() {
         ibkrReadiness.lastVerifiedAt = Date().timeIntervalSince1970
-        setStatus(action: "VERIFY", status: .success, message: "IBKR READINESS SAVED. \(ibkrReadiness.label).")
+        setStatus(action: "VERIFY", status: .success, message: "BROKER READINESS SAVED. \(ibkrReadiness.label).")
     }
 
     func resetSeed() {

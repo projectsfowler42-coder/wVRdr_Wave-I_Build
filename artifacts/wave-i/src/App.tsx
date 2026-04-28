@@ -3,7 +3,7 @@ import { runMdkSelfTest, type MdkProbe } from './lib/mdk';
 import { getTruthColor, mapSourceToTruth, TruthClass } from './lib/truth';
 import { getSetting, loadScrapes, saveScrape, setSetting, sydneyStamp, utcStamp, type ScrapeRecord } from './lib/wal';
 
-type Page = 'main' | 'ibkr' | 'instrument' | 'funding' | 'reserves' | 'proof' | 'actions';
+type Page = 'main' | 'broker' | 'instrument' | 'funding' | 'reserves' | 'proof' | 'actions';
 type Bucket = 'BLUE' | 'GREEN';
 type CheckState = 'OK' | 'NO' | 'UNKNOWN';
 type StatusCode = 'IDLE' | 'RUNNING' | 'SUCCESS' | 'NO CONNECTOR' | 'NO RECORD' | 'FAILED' | 'ACTIVE';
@@ -295,7 +295,7 @@ export default function App() {
           <header><Back setPage={setPage} /><h1>{page.toUpperCase()}</h1></header>
           <ActionStrip action={action} />
 
-          {page === 'ibkr' && <section className="wi-list">{CHECKS.map((label, index) => <div className="wi-row" key={label}><span>{label}</span><div><button onClick={() => setCheck(index, 'OK')}>OK</button><button onClick={() => setCheck(index, 'NO')}>NO</button><button onClick={() => setCheck(index, 'UNKNOWN')}>UNKNOWN</button></div></div>)}</section>}
+          {page === 'broker' && <section className="wi-list">{CHECKS.map((label, index) => <div className="wi-row" key={label}><span>{label}</span><div><button onClick={() => setCheck(index, 'OK')}>OK</button><button onClick={() => setCheck(index, 'NO')}>NO</button><button onClick={() => setCheck(index, 'UNKNOWN')}>UNKNOWN</button></div></div>)}</section>}
 
           {page === 'instrument' && <section className="wi-list"><div className="wi-row"><span>BUCKET</span><div><button onClick={() => { setBucket('BLUE'); setTicker(BLUE[0].ticker); }}>[B]</button><button onClick={() => { setBucket('GREEN'); setTicker(GREEN[0].ticker); }}>[G]</button></div></div>{instruments.map((inst) => <button className="wi-choice" key={inst.ticker} onClick={() => setTicker(inst.ticker)}>{inst.ticker} — {inst.name}</button>)}<button className="wi-primary" onClick={refresh}>REFRESH SELECTED</button></section>}
 
@@ -305,7 +305,7 @@ export default function App() {
 
           {page === 'proof' && <section className="wi-list"><div className="wi-metric"><b>{wal.length}</b><span>WAL RECORDS</span></div><button onClick={() => exportWal('json')}>EXPORT JSON</button><button onClick={() => exportWal('csv')}>EXPORT CSV</button><MdkProbeList probes={mdkProbes} /></section>}
 
-          {page === 'actions' && <section className="wi-list"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('ibkr')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button><button onClick={runMdk}>MDK SELF TEST</button><label className="wi-input">API_BASE_URL<input value={apiBaseUrl} onChange={(e) => void persistApiBaseUrl(e.target.value)} placeholder="https://..." /></label><MdkProbeList probes={mdkProbes} /></section>}
+          {page === 'actions' && <section className="wi-list"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('broker')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button><button onClick={runMdk}>MDK SELF TEST</button><label className="wi-input">API_BASE_URL<input value={apiBaseUrl} onChange={(e) => void persistApiBaseUrl(e.target.value)} placeholder="https://..." /></label><MdkProbeList probes={mdkProbes} /></section>}
         </div>
       </main>
     );
@@ -315,7 +315,7 @@ export default function App() {
     <main className="wi-app">
       <section className="wi-grid">
         <button className="wi-head" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><b>wVRdr~</b><span>WAVE-I / S22 COCKPIT</span><small>{theme.toUpperCase()}</small></button>
-        <Tile index={2} title="IBKR" value={readiness.label} sub={readiness.sub} truth={TruthClass.DEGRADED} onClick={() => setPage('ibkr')} />
+        <Tile index={2} title="SCHWAB" value={readiness.label} sub={readiness.sub} truth={TruthClass.DEGRADED} onClick={() => setPage('broker')} />
         <Tile index={3} title="INSTR" value={ticker} sub={priceLabel} truth={quoteTruth} onClick={() => setPage('instrument')} />
         <Tile index={4} title="FUNDING" value="$30K" sub="2026-04-28" truth={TruthClass.DEGRADED} onClick={() => setPage('funding')} />
         <Tile index={5} title="RESERVES" value="$30K" sub="E*TRADE + MARCUS" truth={TruthClass.DEGRADED} onClick={() => setPage('reserves')} />
@@ -323,7 +323,7 @@ export default function App() {
         <Tile index={7} title="ACTIONS" value="REFRESH" sub="SCRAPE / MDK" truth={TruthClass.DEGRADED} onClick={() => setPage('actions')} />
       </section>
       <ActionStrip action={action} />
-      <nav className="wi-command"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('ibkr')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button></nav>
+      <nav className="wi-command"><button onClick={refresh}>REFRESH</button><button onClick={scrape}>SCRAPE</button><button onClick={() => setPage('broker')}>VERIFY</button><button onClick={() => setPage('proof')}>EXPORT</button><button onClick={reset}>RESET</button></nav>
     </main>
   );
 }

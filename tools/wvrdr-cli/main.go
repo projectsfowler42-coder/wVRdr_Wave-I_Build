@@ -61,7 +61,7 @@ func runSimulateLadder() {
 	}
 
 	ladder := execution.GenerateLadder("BKLN", "BUY", 999, 21.05)
-	fmt.Println("[SHADOW_INTENT] IBKR Limit Ladder Preview:")
+	fmt.Println("[SHADOW_INTENT] Broker Limit Ladder Preview:")
 	for i, order := range ladder {
 		fmt.Printf(" Rung %d: %s %d shares of %s at $%.2f\n", i+1, order.Action, order.Quantity, order.Ticker, order.Price)
 	}
@@ -73,7 +73,7 @@ func runSevenGateMarshall(root string) error {
 		{ID: "Gate 1", Name: "Truth Spine source audit", Run: func() error { return validateTruthSpine(root) }},
 		{ID: "Gate 2", Name: "Wave-I PWA source tree present", Run: func() error { return requireDir(filepath.Join(root, waveISrcDir)) }},
 		{ID: "Gate 3", Name: "GitHub Pages build path configured", Run: func() error { return requireWorkflowBuildPath(root) }},
-		{ID: "Gate 4", Name: "No blocked Atlassian/Jira dependencies", Run: func() error { return rejectBlockedDependencyMarkers(root) }},
+		{ID: "Gate 4", Name: "No blocked dependency markers", Run: func() error { return rejectBlockedDependencyMarkers(root) }},
 		{ID: "Gate 5", Name: "PWA manifest and service worker present", Run: func() error { return requirePWAAssets(root) }},
 		{ID: "Gate 6", Name: "MDK resilience hooks present", Run: func() error { return requireMDKHooks(root) }},
 		{ID: "Gate 7", Name: "Shadow execution lock preserved", Run: func() error { return requireShadowExecutionLock(root) }},
@@ -210,7 +210,7 @@ func requireShadowExecutionLock(root string) error {
 func rejectBlockedDependencyMarkers(root string) error {
 	return walkSourceFiles(filepath.Join(root, waveISrcDir), func(path string, lineNumber int, line string) error {
 		lower := strings.ToLower(line)
-		for _, blocked := range []string{"@atlaskit/", "atlassian", "jira-client", "@jira/"} {
+		for _, blocked := range []string{"@atlaskit/", "atlassian", "jira", "jira-client", "@jira/", "confluence", "bitbucket", "ibkr", "tws", "interactive-brokers", "interactive brokers"} {
 			if strings.Contains(lower, blocked) {
 				return fmt.Errorf("%s:%d blocked dependency marker %q", path, lineNumber, blocked)
 			}

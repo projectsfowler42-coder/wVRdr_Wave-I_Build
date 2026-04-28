@@ -56,7 +56,7 @@ enum InstrumentRegistry {
     }
 
     static let knownHoldings: [String: KnownHolding] = [
-        "BKLN": KnownHolding(shares: 97, account: "IBKR Pro")
+        "BKLN": KnownHolding(shares: 97, account: "Schwab")
     ]
 
     static func holding(for ticker: String) -> KnownHolding? {

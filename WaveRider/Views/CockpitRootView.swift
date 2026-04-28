@@ -4,7 +4,7 @@ struct CockpitRootView: View {
     @EnvironmentObject var store: WaveIStore
     @AppStorage("wvrdr_dark_mode") private var isDark: Bool = true
 
-    @State private var showIBKR = false
+    @State private var showBroker = false
     @State private var showInstrument = false
     @State private var showFunding = false
     @State private var showReserves = false
@@ -28,7 +28,7 @@ struct CockpitRootView: View {
                         .padding(.top, 6)
 
                     LazyVGrid(columns: columns, spacing: 10) {
-                        CockpitTile(label: "IBKR", truthClass: store.ibkrReadiness.truthClass, detail: store.ibkrReadiness.isUnverified ? "UNVERIFIED" : store.ibkrReadiness.label) { showIBKR = true }
+                        CockpitTile(label: "SCHWAB", truthClass: store.ibkrReadiness.truthClass, detail: store.ibkrReadiness.isUnverified ? "UNVERIFIED" : store.ibkrReadiness.label) { showBroker = true }
                         CockpitTile(label: store.selectedTicker, truthClass: store.quoteTruthClass, detail: quoteDetail) { showInstrument = true }
                         CockpitTile(label: "FUNDING", truthClass: store.fundingEvents.first?.truthClass ?? .degraded, detail: fundingDetail) { showFunding = true }
                         CockpitTile(label: "RESERVES", truthClass: deriveTruthClass(store.accountRails.map(\.truthClass)), detail: reservesDetail) { showReserves = true }
@@ -45,7 +45,7 @@ struct CockpitRootView: View {
                     Spacer(minLength: 0)
                 }
             }
-            .sheet(isPresented: $showIBKR) { IBKRReadinessView().environmentObject(store) }
+            .sheet(isPresented: $showBroker) { IBKRReadinessView().environmentObject(store) }
             .sheet(isPresented: $showInstrument) { InstrumentView().environmentObject(store) }
             .sheet(isPresented: $showFunding) { FundingView().environmentObject(store) }
             .sheet(isPresented: $showReserves) { ReservesView().environmentObject(store) }

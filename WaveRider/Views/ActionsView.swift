@@ -21,7 +21,7 @@ struct ActionsView: View {
                         store.scrape()
                         dismiss()
                     }
-                    actionRow("VERIFY", "Save IBKR readiness checklist state.", tone: .cyan) {
+                    actionRow("VERIFY", "Save broker readiness checklist state.", tone: .cyan) {
                         store.verify()
                         dismiss()
                     }
