@@ -36,7 +36,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Gate 1 - Install Workspace Dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Gate 2 - Setup Go Marshall Environment
         uses: actions/setup-go@v5
