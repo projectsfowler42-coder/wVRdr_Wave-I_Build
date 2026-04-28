@@ -242,3 +242,7 @@ pnpm --filter @workspace/wave-i build = PASS
 S22 manual protocol = PASS or quarantined
 MDK SELF TEST = no unhandled FAIL
 ```
+
+## Deployment trigger log
+
+- 2026-04-28: GitHub Pages source switched to GitHub Actions. Triggered Block-5 deploy rerun.
