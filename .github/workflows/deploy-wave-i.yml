@@ -26,16 +26,14 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
-          run_install: false
 
-      - name: Gate 1 - Setup Node.js PWA Environment
+      - name: Gate 1 - Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Gate 1 - Install Workspace Dependencies
+      - name: Gate 1 - Install Dependencies
         run: pnpm install --no-frozen-lockfile
 
       - name: Gate 2 - Setup Go Marshall Environment
@@ -44,10 +42,12 @@ jobs:
           go-version: '1.21'
 
       - name: Gate 2 - Build Marshall CLI
-        run: go build -o tools/wvrdr-cli/wvrdr ./tools/wvrdr-cli
+        run: |
+          mkdir -p tools/wvrdr-cli/bin
+          go build -o tools/wvrdr-cli/bin/wvrdr ./tools/wvrdr-cli
 
       - name: Gate 3 - Run 7-Gate Truth Spine Audit
-        run: ./tools/wvrdr-cli/wvrdr validate
+        run: ./tools/wvrdr-cli/bin/wvrdr validate
 
       - name: Gate 4 - Run Wave-I Typecheck
         run: pnpm --filter @workspace/wave-i run typecheck
