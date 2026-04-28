@@ -10,7 +10,7 @@ struct IBKRReadinessView: View {
                 Color(red: 0.02, green: 0.025, blue: 0.04).ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        sectionLabel("IBKR PRO READINESS")
+                        sectionLabel("SCHWAB READINESS")
                         HStack {
                             Text(store.ibkrReadiness.isUnverified ? "UNVERIFIED" : store.ibkrReadiness.label)
                                 .font(.system(size: 20, weight: .bold, design: .monospaced))
