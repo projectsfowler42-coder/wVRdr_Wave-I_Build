@@ -1,0 +1,140 @@
+Paste this into GitHub → Add file → Create new file at:
+
+.github/workflows/broker-label-cleanup.yml
+
+name: Broker Label Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/broker-label-cleanup.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Apply surgical Schwab broker-label cleanup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply surgical broker-label patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              "tools/wvrdr-cli/main.go": [
+                  ('[SHADOW_INTENT] IBKR Limit Ladder Preview:', '[SHADOW_INTENT] Broker Limit Ladder Preview:'),
+                  ('Gate 4", Name: "No blocked Atlassian/Jira dependencies"', 'Gate 4", Name: "No blocked dependency markers"'),
+                  ('"@atlaskit/", "atlassian", "jira-client", "@jira/"', '"@atlaskit/", "atlassian", "jira", "jira-client", "@jira/", "confluence", "bitbucket", "ibkr", "tws", "interactive-brokers", "interactive brokers"'),
+              ],
+              "artifacts/wave-i/src/App.tsx": [
+                  ("type Page = 'main' | 'ibkr' |", "type Page = 'main' | 'broker' |"),
+                  ("page === 'ibkr'", "page === 'broker'"),
+                  ("setPage('ibkr')", "setPage('broker')"),
+                  ('title="IBKR"', 'title="SCHWAB"'),
+              ],
+              "WaveRider/Data/WaveIStore.swift": [
+                  ("IBKR Pro", "Schwab"),
+                  ("Custody: IBKR Pro execution rail.", "Custody: Schwab execution rail."),
+                  ("IBKR READINESS SAVED.", "BROKER READINESS SAVED."),
+              ],
+              "WaveRider/Views/CockpitRootView.swift": [
+                  ("@State private var showIBKR = false", "@State private var showBroker = false"),
+                  ('CockpitTile(label: "IBKR"', 'CockpitTile(label: "SCHWAB"'),
+                  ("showIBKR = true", "showBroker = true"),
+                  ('.sheet(isPresented: $showIBKR) { IBKRReadinessView().environmentObject(store) }', '.sheet(isPresented: $showBroker) { IBKRReadinessView().environmentObject(store) }'),
+              ],
+              "WaveRider/Views/IBKRReadinessView.swift": [
+                  ("IBKR PRO READINESS", "SCHWAB READINESS"),
+              ],
+              "WaveRider/Views/ActionsView.swift": [
+                  ("Save IBKR readiness checklist state.", "Save broker readiness checklist state."),
+              ],
+              "WaveRider/Models/InstrumentRegistry.swift": [
+                  ('account: "IBKR Pro"', 'account: "Schwab"'),
+              ],
+          }
+
+          changed = []
+
+          for file_name, pairs in replacements.items():
+              path = Path(file_name)
+              if not path.exists():
+                  print(f"SKIP missing file: {file_name}")
+                  continue
+
+              text = path.read_text()
+              original = text
+
+              for old, new in pairs:
+                  text = text.replace(old, new)
+
+              if text != original:
+                  path.write_text(text)
+                  changed.append(file_name)
+                  print(f"UPDATED {file_name}")
+              else:
+                  print(f"NOCHANGE {file_name}")
+
+          print("Changed files:")
+          for item in changed:
+              print(f"- {item}")
+          PY
+
+      - name: Show patch
+        run: |
+          git diff -- \
+            tools/wvrdr-cli/main.go \
+            artifacts/wave-i/src/App.tsx \
+            WaveRider/Data/WaveIStore.swift \
+            WaveRider/Views/CockpitRootView.swift \
+            WaveRider/Views/IBKRReadinessView.swift \
+            WaveRider/Views/ActionsView.swift \
+            WaveRider/Models/InstrumentRegistry.swift
+
+      - name: Build Marshall
+        run: |
+          mkdir -p tools/wvrdr-cli/bin
+          go build -o tools/wvrdr-cli/bin/wvrdr ./tools/wvrdr-cli
+
+      - name: Run Marshall validate
+        run: ./tools/wvrdr-cli/bin/wvrdr validate
+
+      - name: Commit broker-label cleanup
+        run: |
+          if git diff --quiet -- \
+            tools/wvrdr-cli/main.go \
+            artifacts/wave-i/src/App.tsx \
+            WaveRider/Data/WaveIStore.swift \
+            WaveRider/Views/CockpitRootView.swift \
+            WaveRider/Views/IBKRReadinessView.swift \
+            WaveRider/Views/ActionsView.swift \
+            WaveRider/Models/InstrumentRegistry.swift; then
+            echo "No broker-label changes needed."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            tools/wvrdr-cli/main.go \
+            artifacts/wave-i/src/App.tsx \
+            WaveRider/Data/WaveIStore.swift \
+            WaveRider/Views/CockpitRootView.swift \
+            WaveRider/Views/IBKRReadinessView.swift \
+            WaveRider/Views/ActionsView.swift \
+            WaveRider/Models/InstrumentRegistry.swift
+
+          git commit -m "fix(marshall): surgical removal of legacy broker labels"
+          git push
+          
