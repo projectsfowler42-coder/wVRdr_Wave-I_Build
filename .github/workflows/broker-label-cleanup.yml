@@ -1,7 +1,3 @@
-Paste this into GitHub → Add file → Create new file at:
-
-.github/workflows/broker-label-cleanup.yml
-
 name: Broker Label Cleanup
 
 on:
