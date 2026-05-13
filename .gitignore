@@ -47,3 +47,76 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# >>> wVRdr~ SECURITY IGNORE BLOCK
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+*.asc
+*.gpg
+secrets/
+credentials/
+tokens/
+broker/
+ibkr/
+schwab/
+
+# --- Private / crown-jewel material ---
+private/
+private-not-for-git/
+Mouseion/
+MSP/
+vault/
+raw-vault/
+strategy-private/
+crown-jewels/
+prompts-private/
+.wvrdr-security-backups/
+
+# --- Data dumps / exports ---
+exports/
+data/raw/
+data/private/
+*.csv
+*.xlsx
+*.xls
+*.zip
+*.7z
+*.rar
+*.docx
+*.pdf
+*.sqlite
+*.db
+
+# --- OS/editor junk ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Node / Python common ---
+node_modules/
+dist/
+build/
+.cache/
+.next/
+out/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Logs ---
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# <<< wVRdr~ SECURITY IGNORE BLOCK
